@@ -3,7 +3,7 @@ title: "Leaf photosynthetic traits and N from field observations"
 output:
   html_document:
     toc: true
-    toc_depth: 2
+    toc_depth: 3
     toc_float: true
 ---
 
@@ -14,23 +14,23 @@ library(rbeni)
 library(patchwork)
 ```
 
-## Data
+## Ning Dong's data
 
 The data used here is this leaf photosynthetic traits and N dataset:
 
-### Data reference
+*Data reference*
 
 Dong, Ning, Prentice, Iain Colin, Wright, Ian, Wang, Han, Atkin,Owen, Bloomfield, Keith, Domingues, Tomas, Gleason, Sean, Maire, Vincent, Onoda, Yusuke, Poorter, Hendrik, & Smith, Nicholas. (2022). dataset for paper "Leaf nitrogen from the perspective of optimal plant function" (Version v1) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.6831903
 
-### Paper reference
+*Paper reference*
 
 Dong, N., Prentice, I. C., Wright, I. J., Wang, H., Atkin, O. K., Bloomfield, K. J., Domingues, T. F., Gleason, S. M., Maire, V., Onoda, Y., Poorter, H., & Smith, N. G. (2022). Leaf nitrogen from the perspective of optimal plant function. Journal of Ecology, 00, 1– 18. https://doi.org/10.1111/1365-2745.13967
 
 ```{r}
-df <- read_csv("~/data/leafn_ning_dong/data_leafn_ning_dong.csv")
+df <- read_csv("~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong.csv")
 ```
 
-## Distribution of data
+### Distribution of data
 
 ```{r, warning=FALSE}
 gg1 <- df %>% 
@@ -93,7 +93,7 @@ gg4 <- df %>%
   (gg3 + gg4)
 ```
 
-## Analysis vs soil C:N
+### Analysis vs soil C:N
 
 ```{r, warning=FALSE}
 gg1 <- df %>% 
@@ -122,3 +122,40 @@ gg4 <- df %>%
 
 gg1 + gg2 + gg3 + gg4
 ```
+
+
+**Issues**
+
+- Why soil C:N in discrete values? Where is it extracted from?
+
+### Analysis by PFT
+
+```{r}
+# -> Ning, please add your analysis as R code here
+```
+
+## Ellsworth data
+
+The data used here is this leaf photosynthetic traits and N dataset:
+
+*Data reference*
+
+Ellsworth, David; Wright, Ian; Crous, Kristine Y.; Goll, Daniel S; Zaehle, Sönke; Cernusak, Lucas A.; et al. (2022): Convergence in phosphorus constraints to photosynthesis dataset. figshare. Dataset. https://doi.org/10.6084/m9.figshare.20010485.v1 
+
+*Paper reference*
+
+Ellsworth, D.S., Crous, K.Y., De Kauwe, M.G. et al. Convergence in phosphorus constraints to photosynthesis in forests around the world. Nat Commun 13, 5005 (2022). https://doi.org/10.1038/s41467-022-32545-0
+
+```{r}
+df <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv")
+
+names(df)
+```
+
+**Issues**
+
+- No longitude and latitude information in this data.
+
+## TROBIT data
+
+-> Yunke, please add your analysis code here

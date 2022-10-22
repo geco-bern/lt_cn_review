@@ -15,7 +15,7 @@ Analyses of the review paper on C-N modelling by the LEMONTREE N cycle WG.
 `analysis_leafn_ning_dong.Rmd`
 
 - Field leaf N and Vcmax vs global map-based soil C:N using Ning Dong's dataset. Implemented in 
-- Data aggregated to PFTs and comparison to P-model estimates and to veg model prescribed values
+- Data aggregated to PFTs and comparison to P-model estimates and to veg model prescribed values (STILL MISSING, -> Ning, could you add code to `analysis_leafn_ning_dong.Rmd`)
 
 `analysis_leafn_trobit.Rmd`
 
