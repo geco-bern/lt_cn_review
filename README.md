@@ -2,7 +2,9 @@
 
 Analyses of the review paper on C-N modelling by the LEMONTREE N cycle WG.
 
-## Paper outline and what analysis fits in where
+## Paper outline 
+
+... and what analysis fits in where
 
 ### Global carbon cycle and vegetation changes
 
@@ -10,22 +12,22 @@ Analyses of the review paper on C-N modelling by the LEMONTREE N cycle WG.
 
 ### Experiments and field data insights
 
-#### `analysis_leafn_ning_dong.Rmd`
+`analysis_leafn_ning_dong.Rmd`
 
 - Field leaf N and Vcmax vs global map-based soil C:N using Ning Dong's dataset. Implemented in 
 - Data aggregated to PFTs and comparison to P-model estimates and to veg model prescribed values
 
-#### `analysis_leafn_trobit.Rmd`
+`analysis_leafn_trobit.Rmd`
 
 - STILL MISSING
 - Field leaf N and Vcmax vs global *measured* soil C:N (-> Yunke)
 
-#### `analysis_nfert_liang.Rmd`
+`analysis_nfert_liang.Rmd`
 
 - STILL MISSING
 - Analysing effect size magnitudes in N fertilisation experiments: Nmass > Narea (> PNUE) > Vcmax. Separate control on LMA, influential for Nmass. (-> Evan)
 
-#### `analysis_mesi.Rmd`
+`analysis_mesi.Rmd`
 
 - (analysis code file to be added here, -> Beni)
 - Allocation shift towards more belowground C allocation with consequence of stimulated soil decomposition and N uptake
