@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rbeni)
 library(patchwork)
+library(skimr)
 ```
 
 ## Ning Dong's data
@@ -28,6 +29,11 @@ Dong, N., Prentice, I. C., Wright, I. J., Wang, H., Atkin, O. K., Bloomfield, K.
 
 ```{r}
 df <- read_csv("~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong.csv")
+```
+
+Quick overview of data.
+```{r}
+skim(df)
 ```
 
 ### Distribution of data
@@ -148,8 +154,7 @@ Ellsworth, D.S., Crous, K.Y., De Kauwe, M.G. et al. Convergence in phosphorus co
 
 ```{r}
 df <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv")
-
-names(df)
+skim(df)
 ```
 
 **Issues**
