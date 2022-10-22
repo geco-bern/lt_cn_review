@@ -1,0 +1,124 @@
+---
+title: "Leaf photosynthetic traits and N from field observations"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rbeni)
+library(patchwork)
+```
+
+## Data
+
+The data used here is this leaf photosynthetic traits and N dataset:
+
+### Data reference
+
+Dong, Ning, Prentice, Iain Colin, Wright, Ian, Wang, Han, Atkin,Owen, Bloomfield, Keith, Domingues, Tomas, Gleason, Sean, Maire, Vincent, Onoda, Yusuke, Poorter, Hendrik, & Smith, Nicholas. (2022). dataset for paper "Leaf nitrogen from the perspective of optimal plant function" (Version v1) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.6831903
+
+### Paper reference
+
+Dong, N., Prentice, I. C., Wright, I. J., Wang, H., Atkin, O. K., Bloomfield, K. J., Domingues, T. F., Gleason, S. M., Maire, V., Onoda, Y., Poorter, H., & Smith, N. G. (2022). Leaf nitrogen from the perspective of optimal plant function. Journal of Ecology, 00, 1– 18. https://doi.org/10.1111/1365-2745.13967
+
+```{r}
+df <- read_csv("~/data/leafn_ning_dong/data_leafn_ning_dong.csv")
+```
+
+## Distribution of data
+
+```{r, warning=FALSE}
+gg1 <- df %>% 
+  ggplot(aes(vcmax25_obs)) +
+  geom_density() +
+  labs(title = "Nmass")
+
+gg2 <- df %>% 
+  ggplot(aes(Narea)) +
+  geom_density() +
+  labs(title = "Narea")
+
+gg3 <- df %>% 
+  ggplot(aes(Nmass)) +
+  geom_density() +
+  labs(title = "Nmass")
+
+gg4 <- df %>% 
+  ggplot(aes(LMA)) +
+  geom_density() +
+  labs(title = "LMA")
+
+(gg1 + gg2) /
+  (gg3 + gg4)
+```
+
+Log-transform all variables to make them closer to normally distributed.
+
+```{r, warning=FALSE}
+df <- df %>% 
+  mutate(log_vcmax25_obs = log(vcmax25_obs),
+         log_Narea = log(Narea),
+         log_Nmass = log(Nmass),
+         log_LMA = log(LMA),
+         )
+```
+
+```{r, warning=FALSE}
+gg1 <- df %>% 
+  ggplot(aes(log_vcmax25_obs)) +
+  geom_density() +
+  labs(title = "Nmass")
+
+gg2 <- df %>% 
+  ggplot(aes(log_Narea)) +
+  geom_density() +
+  labs(title = "Narea")
+
+gg3 <- df %>% 
+  ggplot(aes(log_Nmass)) +
+  geom_density() +
+  labs(title = "Nmass")
+
+gg4 <- df %>% 
+  ggplot(aes(log_LMA)) +
+  geom_density() +
+  labs(title = "LMA")
+
+(gg1 + gg2) /
+  (gg3 + gg4)
+```
+
+## Analysis vs soil C:N
+
+```{r, warning=FALSE}
+gg1 <- df %>% 
+  ggplot(aes(soil_cn, log_vcmax25_obs)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg2 <- df %>% 
+  ggplot(aes(soil_cn, log_Narea)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg3 <- df %>% 
+  ggplot(aes(soil_cn, log_Nmass)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg4 <- df %>% 
+  ggplot(aes(soil_cn, log_LMA)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg1 + gg2 + gg3 + gg4
+```
