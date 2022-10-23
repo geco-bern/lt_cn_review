@@ -1,0 +1,283 @@
+---
+title: "Experiments data analysis with MESI"
+author: "Beni Stocker"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    #theme: paper
+    toc: true
+    toc_float: true
+    toc_depth: 2
+# output:
+#   pdf_document:
+#     toc: true
+#     toc_depth: 2
+header-includes:
+   - \usepackage{amsmath}
+# bibliography: bibliography.bib
+---
+
+```{r, warning=FALSE}
+library(tidyverse)   # for working with ease
+library(metafor)     # for meta analysis
+```
+
+
+# Read data
+
+In this example, we're looking at Vcmax, Narea, and Nmass from N-fertilisation experiments.
+
+Load data files
+```{r}
+## second line provides units
+col_names <- names(read_csv("~/mesi-db/data/mesi_main.csv", n_max = 0))
+units <- names(read_csv("~/mesi-db/data/mesi_main.csv", n_max = 0, skip = 1))
+df_units <- tibble(column = col_names,
+                   units = units
+                   )
+
+df <- read_csv("~/mesi-db/data/mesi_main.csv", col_names = col_names, skip = 2)
+```
+
+
+# CO2 experiments
+
+Select experiments from which we will use data.
+```{r warning=FALSE}
+df_sub <- df %>%
+  
+  ## CO2-only manipulation (no other factors manipulated, no crossed manipulation)
+  filter(treatment == "c") %>% 
+  
+  ## only experiments conducted in the field
+  filter(experiment_type == "field")
+```
+
+
+## Data overview
+
+Get an overview of the available data.
+
+Number of observations (paired ambient and elevated) per response variable.
+```{r}
+df_sub %>% 
+  group_by(response) %>% 
+  summarise(n = n()) %>% 
+  arrange(response) %>% 
+  knitr::kable()
+```
+
+Number of years per experiment.
+```{r}
+df_sub %>% 
+  filter(!is.na(sampling_year)) %>% 
+  group_by(exp) %>% 
+  summarise(nyears = max(sampling_year)) %>% 
+  knitr::kable()
+```
+
+**Issues**
+
+- Is information on fumigation type available in some way? I'd like to select data from FACE and open-top chambers.
+- Some experiments don't have a name, referred to by coordinates.
+
+## Data subsetting
+
+Let's use just data for aboveground biomass (`agb`) and from CO2-only experiments that lasted at least three years.
+```{r}
+use_exp <- df_sub %>% 
+  filter(!is.na(sampling_year)) %>% 
+  group_by(exp) %>% 
+  summarise(nyears = max(sampling_year)) %>% 
+  filter(nyears >= 3) %>% 
+  pull(exp)
+
+df_sub2 <- df_sub %>% 
+  filter(response == "agb" & exp %in% use_exp)
+```
+
+## Analysis
+
+Test analysis and plot of ANPP data. Calculate the response ratio of ANPP (mean and variance) for each experiment. To get that, we first need to calcuate the means and standard deviation for the ambient and elevated levels, pooling multiple measurements (years, sampling dates), each given with mean $\mu_i$, number $N_i$ (replicates/plots), and standard deviation $\sigma_i$ or standard error. For the function `metafor::escalc()`, we need standard deviations ($SD$). Calculate them for those rows where only standard errors $SE$ are given as:
+$$
+SD = SE \sqrt{N}
+$$
+
+Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
+```{r}
+df_sub3 <- df_sub2 %>%
+  
+  ## keep only essential variables and drop rows containing missing values for essential variables
+  select(id, exp, response, treatment,sampling_year,  x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  drop_na() %>% 
+  
+  ## Get logarithm of response ratio and its variance
+  metafor::escalc( 
+    measure = "ROM", 
+    m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+    m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+    data = ., 
+    append = TRUE, 
+    var.names = c("logr", "logr_var") 
+    ) %>% 
+  
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  ## get standard error
+  mutate( logr_se = sqrt(logr_var) / sqrt(rep_t) )
+```
+
+Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
+```{r}
+df_sub4 <- df_sub3 %>% 
+  
+  filter(!is.na(logr_var) & !is.na(logr)) %>% 
+  
+  # re-create ID (common ID per experiment and response variable)
+  select(-id) %>%
+  mutate( id = paste(exp, response, sep = "_XXX_")) %>% 
+  
+  MAd::agg( 
+    id = id, 
+    es = logr, 
+    var = logr_var,
+    cor = 1.0, 
+    method = "BHHR", 
+    data = . 
+    ) %>% 
+
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  # separate ID again for ease of data use
+  mutate( id = str_split(id, "_XXX_") ) %>%
+  mutate( exp = purrr::map_chr(id, 1),
+          response = purrr::map_chr(id, 2) ) %>%
+  
+  ## rename again
+  select(exp, response, logr = es, logr_var = var) %>%
+
+  ## add number of observations (sum of plots and repeated samplings)
+  left_join(
+    df_sub3 %>%
+      group_by(exp, response, treatment) %>%
+      summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
+    by = c("exp", "response")
+  ) %>% 
+  
+  ## get standard error. Verify if number available observations are identical
+  ## for ambient and elevated. Use N from control here (n_c).
+  mutate( logr_se = sqrt(logr_var) / sqrt(n_c) )
+```
+
+Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
+```{r}
+# adjusted step size (see http://www.metafor-project.org/doku.php/tips:convergence_problems_rma)
+mod <- metafor::rma.mv( 
+  logr, 
+  logr_var,
+  method = "REML", 
+  random = ~ 1 | exp, 
+  slab = exp,
+  control = list(stepadj = 0.3), 
+  data = df_sub4 
+  )
+
+# get estimate and confidence intervals of scaled variable 
+meta_scaled <- predict( mod, transf = exp )
+
+df_box <- tibble(
+  response = "agb",
+  middle = mod$b[1,1],
+  ymin   = mod$ci.lb,
+  ymax   = mod$ci.ub,
+
+  middle_scaled = meta_scaled$pred,
+  ymin_scaled   = meta_scaled$ci.lb,
+  ymax_scaled   = meta_scaled$ci.ub
+  )
+ 
+  # return(list(df_box = df_box, out_meta = out_meta))
+
+# # do meta-analysis on all variables
+# varlist <- unique(df_c_agg$my_varnam)
+# list_meta  <- purrr::map(as.list(varlist), ~agg_meta(df_c_agg, .))
+# df_metabox <- purrr::map_dfr(list_meta, "df_box") %>% left_join( df_varnams, by = "my_varnam" )
+# names(list_meta) <- varlist
+```
+
+## Visualisations
+
+Plot dots and my box.
+```{r}
+df_sub4 %>%
+  ggplot( aes(x = response, y = logr)) +
+  geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
+  geom_crossbar( data = df_box, aes(x = response, y = middle, ymin = ymin, ymax = ymax), fill = "grey80", alpha = 0.6, width = 0.5 ) +
+  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  coord_flip() +
+  ylim(-1, 1) 
+```
+
+
+```{r}
+metafor::forest(mod, xlab = "Log Response Ratio", mlab = "", xlim = c(-1,1), cex = 0.5)
+```
+
+
+<!-- # N fertilisation experiments -->
+
+<!-- Select data based on our purpose. -->
+<!-- ```{r} -->
+<!-- df_sub <- df %>%  -->
+<!--   # filter(str_detect(treatment, "f")) %>%  -->
+<!--   filter(treatment == "f") %>%  -->
+<!--   filter(response %in% c("vcmax", "leaf_n", "leaf_cn")) %>%  -->
+<!--   filter(experiment_type %in% c("field", "greenhouse", "growth_chamber", "outdoor_chamber"))  # not "pot" -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- df_sub %>%  -->
+<!--   select(id, exp, response, experiment_type, treatment, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>%  -->
+<!--   drop_na() %>%  -->
+<!--   group_by(response) %>%  -->
+<!--   summarise(n_data = n()) %>%  -->
+<!--   left_join( -->
+<!--     df_sub %>%  -->
+<!--       select(exp, response) %>%  -->
+<!--       drop_na() %>% -->
+<!--       distinct() %>%  -->
+<!--       group_by(response) %>%  -->
+<!--       summarise(n_experiments = n()), -->
+<!--     by = "response" -->
+<!--   ) -->
+<!-- ``` -->
+
+
+<!-- ## Analysis -->
+
+
+
+<!-- ## Comments -->
+
+<!-- - Needs extensive explanation of each column -->
+<!-- - No data for Narea or should this be derived from leaf_n and LMA? -->
+<!-- - Standardised units per variable (response). Currently, values are given in different units. This could be post-processed quite easily. -->
+<!-- - Units of `leaf_cn` is given as `"molar"` or `NA`. Please provide information about whether `NA` means gC/gN. -->
+<!-- ```{r} -->
+<!-- df %>%  -->
+<!--   filter(response %in% c("leaf_n")) %>% -->
+<!--   pull(x_units) %>%  -->
+<!--   unique() -->
+
+<!-- df %>%  -->
+<!--   filter(response %in% c("vcmax")) %>% -->
+<!--   pull(x_units) %>%  -->
+<!--   unique() -->
+
+<!-- df %>%  -->
+<!--   filter(response %in% c("leaf_cn")) %>% -->
+<!--   pull(x_units) -->
+<!-- ``` -->
