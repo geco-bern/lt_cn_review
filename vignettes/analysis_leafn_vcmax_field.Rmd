@@ -28,7 +28,8 @@ Dong, Ning, Prentice, Iain Colin, Wright, Ian, Wang, Han, Atkin,Owen, Bloomfield
 Dong, N., Prentice, I. C., Wright, I. J., Wang, H., Atkin, O. K., Bloomfield, K. J., Domingues, T. F., Gleason, S. M., Maire, V., Onoda, Y., Poorter, H., & Smith, N. G. (2022). Leaf nitrogen from the perspective of optimal plant function. Journal of Ecology, 00, 1– 18. https://doi.org/10.1111/1365-2745.13967
 
 ```{r}
-df <- read_csv("~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong.csv")
+df <- read_csv("~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong.csv") %>% 
+  rename(lat = Latitude, lon = longitude)
 ```
 
 Quick overview of data.
@@ -134,6 +135,63 @@ gg1 + gg2 + gg3 + gg4
 
 - Why soil C:N in discrete values? Where is it extracted from?
 
+### Alternative soil C:N data extraction
+
+Taking it from ISRIC WISE30sec
+
+```{r}
+library(ingestr)
+settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
+
+df_sites <- df %>% 
+  select(sitename = site_id, lon, lat) %>% 
+  distinct()
+
+df_wise <- ingest(
+  df_sites,
+  source    = "wise",
+  settings  = settings_wise,
+  dir       = "~/data/soil/wise/"
+  ) %>% 
+  unnest(data)
+
+df <- df %>% 
+  left_join(
+    df_wise %>% 
+      rename(site_id = sitename),
+    by = "site_id"
+  )
+```
+
+Plot with alternative C:N.
+```{r, warning=FALSE}
+gg1 <- df %>% 
+  ggplot(aes(CNrt, log_vcmax25_obs)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg2 <- df %>% 
+  ggplot(aes(CNrt, log_Narea)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg3 <- df %>% 
+  ggplot(aes(CNrt, log_Nmass)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg4 <- df %>% 
+  ggplot(aes(CNrt, log_LMA)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg1 + gg2 + gg3 + gg4
+```
+
 ### Analysis by PFT
 
 ```{r}
@@ -153,8 +211,8 @@ Ellsworth, David; Wright, Ian; Crous, Kristine Y.; Goll, Daniel S; Zaehle, Sönk
 Ellsworth, D.S., Crous, K.Y., De Kauwe, M.G. et al. Convergence in phosphorus constraints to photosynthesis in forests around the world. Nat Commun 13, 5005 (2022). https://doi.org/10.1038/s41467-022-32545-0
 
 ```{r}
-df <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv")
-skim(df)
+df_ellsworth <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv")
+skim(df_ellsworth)
 ```
 
 **Issues**

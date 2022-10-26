@@ -23,7 +23,23 @@ library(metafor)     # for meta analysis
 ```
 
 
-# Read data
+# Read data and libraries
+
+The intention is to use the MESI db to perform a meta analysis of variables under elevated CO2 (-only):
+
+- Asat (?)
+- (Vcmax from Walker et al.)
+- (Jmax from Walker et al.)
+- Leaf Nmass
+- Leaf Narea
+- ANPP
+- N uptake
+- N availability
+- root:shoot ratio
+- BNPP
+- BNPP:ANPP
+
+- (soil decomposition rate from van Groenigen)
 
 In this example, we're looking at Vcmax, Narea, and Nmass from N-fertilisation experiments.
 
@@ -44,7 +60,7 @@ df <- read_csv("~/mesi-db/data/mesi_main.csv", col_names = col_names, skip = 2)
 
 Select experiments from which we will use data.
 ```{r warning=FALSE}
-df_sub <- df %>%
+df <- df %>%
   
   ## CO2-only manipulation (no other factors manipulated, no crossed manipulation)
   filter(treatment == "c") %>% 
@@ -56,26 +72,6 @@ df_sub <- df %>%
 
 ## Data overview
 
-Get an overview of the available data.
-
-Number of observations (paired ambient and elevated) per response variable.
-```{r}
-df_sub %>% 
-  group_by(response) %>% 
-  summarise(n = n()) %>% 
-  arrange(response) %>% 
-  knitr::kable()
-```
-
-Number of years per experiment.
-```{r}
-df_sub %>% 
-  filter(!is.na(sampling_year)) %>% 
-  group_by(exp) %>% 
-  summarise(nyears = max(sampling_year)) %>% 
-  knitr::kable()
-```
-
 **Issues**
 
 - Is information on fumigation type available in some way? I'd like to select data from FACE and open-top chambers.
@@ -85,16 +81,37 @@ df_sub %>%
 
 Let's use just data for aboveground biomass (`agb`) and from CO2-only experiments that lasted at least three years.
 ```{r}
-use_exp <- df_sub %>% 
+use_exp <- df %>% 
   filter(!is.na(sampling_year)) %>% 
   group_by(exp) %>% 
   summarise(nyears = max(sampling_year)) %>% 
   filter(nyears >= 3) %>% 
   pull(exp)
 
-df_sub2 <- df_sub %>% 
-  filter(response == "agb" & exp %in% use_exp)
+df2 <- df %>% 
+  filter(exp %in% use_exp) %>% 
+  filter(response %in% c("asat", "vcmax", "jmax", "leaf_n", "leaf_cn", "fine_root_cn", "bgb_cn", "wood_cn", "lai", "lai_max", "anpp", "anpp_leaf", "anpp_woody", "root_n_uptake", "soil_solution_mineral_n", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3", "root_shoot_ratio", "root_production", "root_growth"))
 ```
+
+- Asat (?)
+- (Vcmax from Walker et al.)
+- (Jmax from Walker et al.)
+- Leaf Nmass (leaf_n)
+- Leaf Narea (not available in MESI)
+- Leaf C:N
+- Root C:N ("fine_root_cn", "bgb_cn")
+- Wood C:N ("bgb_cn")
+- LAI (combine "lai" and "lai_max")
+- ANPP
+- N uptake
+- N inorg. availability ("soil_solution_nh4", "soil_solution_no3", "soil_total_n_min_layer", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3")
+- root:shoot ratio
+- BNPP
+- BNPP:ANPP
+
+*Issues*
+
+- Units of `leaf_n`?
 
 ## Analysis
 
@@ -105,10 +122,10 @@ $$
 
 Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
 ```{r}
-df_sub3 <- df_sub2 %>%
+df3 <- df2 %>%
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp, response, treatment,sampling_year,  x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, exp, response, treatment,sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
   drop_na() %>% 
   
   ## Get logarithm of response ratio and its variance
@@ -130,7 +147,7 @@ df_sub3 <- df_sub2 %>%
 
 Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
 ```{r}
-df_sub4 <- df_sub3 %>% 
+df4 <- df3 %>% 
   
   filter(!is.na(logr_var) & !is.na(logr)) %>% 
   
@@ -160,7 +177,7 @@ df_sub4 <- df_sub3 %>%
 
   ## add number of observations (sum of plots and repeated samplings)
   left_join(
-    df_sub3 %>%
+    df3 %>%
       group_by(exp, response, treatment) %>%
       summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
     by = c("exp", "response")
@@ -181,7 +198,7 @@ mod <- metafor::rma.mv(
   random = ~ 1 | exp, 
   slab = exp,
   control = list(stepadj = 0.3), 
-  data = df_sub4 
+  data = df4 
   )
 
 # get estimate and confidence intervals of scaled variable 
@@ -211,7 +228,7 @@ df_box <- tibble(
 
 Plot dots and my box.
 ```{r}
-df_sub4 %>%
+df4 %>%
   ggplot( aes(x = response, y = logr)) +
   geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
   geom_crossbar( data = df_box, aes(x = response, y = middle, ymin = ymin, ymax = ymax), fill = "grey80", alpha = 0.6, width = 0.5 ) +
@@ -223,7 +240,7 @@ df_sub4 %>%
 
 
 ```{r}
-metafor::forest(mod, xlab = "Log Response Ratio", mlab = "", xlim = c(-1,1), cex = 0.5)
+metafor::forest(mod, xlab = "Log Response Ratio", xlim = c(-1,1), cex = 0.5)
 ```
 
 
