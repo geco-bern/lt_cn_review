@@ -193,8 +193,6 @@ df4 <- df3 %>%
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
 source("~/lt_cn_review/R/analyse_meta.R")
-
-out <- analyse_meta(df4, nam_target = "anpp")
 out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4, nam_target = .))
 names(out) <- use_vars
 df_box <- purrr::map_dfr(out, "df_box")
@@ -211,12 +209,13 @@ df4 %>%
   geom_hline( yintercept = 0.0, size = 0.5 ) +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
-  ylim(-1, 1) 
+  ylim(-1, 1) +
+  labs(title = "MESI data")
 ```
 
 
 ```{r}
-metafor::forest(mod, xlab = "Log Response Ratio", xlim = c(-1,1), cex = 0.5)
+purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
 ```
 
 

@@ -47,6 +47,8 @@ Load data files
   
 # modify nfert_liang_combined.csv by hand to have nice column names.
 df <- read_csv("~/data/nfert_liang/nfert_liang_combined.csv")
+
+use_vars <- c("Vcmax", "Narea", "Nmass", "LMA", "SLA")
 ```
 
 Make data (more) conform with MESI.
@@ -68,9 +70,9 @@ df <- df %>%
                                      "herbaceous" # MESI name
                                      )))
 
-## growth forms in Liang and in MESI
-df$growthform %>% unique()
-df_mesi$growth_form %>% unique()
+# ## growth forms in Liang and in MESI
+# df$growthform %>% unique()
+# df$growth_form %>% unique()
 ```
 
 Missing info in Liang et al.:
@@ -86,10 +88,10 @@ Missing info in Liang et al.:
 
 ## Data subsetting
 
-Let's use just data for aboveground biomass (`agb`) and from CO2-only experiments that lasted at least three years.
+Let's use just data for above specified variables.
 ```{r}
 df2 <- df %>% 
-  filter(duration_yr >= 3)
+  filter(response %in% use_vars)
 ```
 
 ## Analysis
@@ -126,7 +128,7 @@ df3 <- df2 %>%
   mutate( logr_se = sqrt(logr_var) / sqrt(rep_t) )
 ```
 
-Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
+Aggregate all measurements (species, multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
 ```{r}
 df4 <- df3 %>% 
   
@@ -159,7 +161,7 @@ df4 <- df3 %>%
   ## add number of observations (sum of plots and repeated samplings)
   left_join(
     df3 %>%
-      group_by(exp, response, treatment) %>%
+      group_by(exp, response) %>%
       summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
     by = c("exp", "response")
   ) %>% 
@@ -171,39 +173,12 @@ df4 <- df3 %>%
 
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
-# adjusted step size (see http://www.metafor-project.org/doku.php/tips:convergence_problems_rma)
-mod <- metafor::rma.mv( 
-  logr, 
-  logr_var,
-  method = "REML", 
-  random = ~ 1 | exp, 
-  slab = exp,
-  control = list(stepadj = 0.3), 
-  data = df4 
-  )
-
-# get estimate and confidence intervals of scaled variable 
-meta_scaled <- predict( mod, transf = exp )
-
-df_box <- tibble(
-  response = "agb",
-  middle = mod$b[1,1],
-  ymin   = mod$ci.lb,
-  ymax   = mod$ci.ub,
-
-  middle_scaled = meta_scaled$pred,
-  ymin_scaled   = meta_scaled$ci.lb,
-  ymax_scaled   = meta_scaled$ci.ub
-  )
- 
-  # return(list(df_box = df_box, out_meta = out_meta))
-
-# # do meta-analysis on all variables
-# varlist <- unique(df_c_agg$my_varnam)
-# list_meta  <- purrr::map(as.list(varlist), ~agg_meta(df_c_agg, .))
-# df_metabox <- purrr::map_dfr(list_meta, "df_box") %>% left_join( df_varnams, by = "my_varnam" )
-# names(list_meta) <- varlist
+source("~/lt_cn_review/R/analyse_meta.R")
+out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4, nam_target = .))
+names(out) <- use_vars
+df_box <- purrr::map_dfr(out, "df_box")
 ```
+
 
 ## Visualisations
 
@@ -216,12 +191,26 @@ df4 %>%
   geom_hline( yintercept = 0.0, size = 0.5 ) +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
-  ylim(-1, 1) 
+  ylim(-1, 1)  +
+  labs(title = "Liang et al. 2020 data")
 ```
 
 
 ```{r}
-metafor::forest(mod, xlab = "Log Response Ratio", xlim = c(-1,1), cex = 0.5)
+# Vcmax
+metafor::forest(out$Vcmax$modl)
+
+# Narea
+metafor::forest(out$Narea$modl)
+
+# Nmass
+metafor::forest(out$Nmass$modl)
+
+# LMA
+metafor::forest(out$LMA$modl)
+
+# SLA
+metafor::forest(out$SLA$modl)
 ```
 
 
