@@ -202,16 +202,16 @@ gg1 + gg2 + gg3 + gg4
 ### Multivariate analysis
 
 ```{r}
-linmod_vcmax <- lm(vcmax_obs ~ lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
-linmod_narea <- lm(Narea ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
-linmod_nmass <- lm(Nmass ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
-linmod_lma   <- lm(LMA ~       lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
+linmod_vcmax <- lm(vcmax_obs ~ lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+linmod_narea <- lm(Narea ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+linmod_nmass <- lm(Nmass ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+linmod_lma   <- lm(LMA ~       lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
 
 library(visreg)
-gg_vcmax <- visreg(linmod_vcmax, "soil_cn", gg = TRUE)
-gg_narea <- visreg(linmod_narea, "soil_cn", gg = TRUE)
-gg_nmass <- visreg(linmod_nmass, "soil_cn", gg = TRUE)
-gg_lma   <- visreg(linmod_lma, "soil_cn", gg = TRUE)
+gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE)
+gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE)
+gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE)
+gg_lma   <- visreg(linmod_lma, "CNrt", gg = TRUE)
 
 gg_vcmax <- gg_vcmax +
   theme_classic()
