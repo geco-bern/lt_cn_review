@@ -140,27 +140,34 @@ gg1 + gg2 + gg3 + gg4
 Taking it from ISRIC WISE30sec
 
 ```{r}
-library(ingestr)
-settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
-
-df_sites <- df %>% 
-  select(sitename = site_id, lon, lat) %>% 
-  distinct()
-
-df_wise <- ingest(
-  df_sites,
-  source    = "wise",
-  settings  = settings_wise,
-  dir       = "~/data/soil/wise/"
-  ) %>% 
-  unnest(data)
-
-df <- df %>% 
-  left_join(
-    df_wise %>% 
-      rename(site_id = sitename),
-    by = "site_id"
-  )
+filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN.csv"
+if (!file.exists(filn)){
+  library(ingestr)
+  settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
+  
+  df_sites <- df %>% 
+    select(sitename = site_id, lon, lat) %>% 
+    distinct()
+  
+  df_wise <- ingest(
+    df_sites,
+    source    = "wise",
+    settings  = settings_wise,
+    dir       = "~/data/soil/wise/"
+    ) %>% 
+    unnest(data)
+  
+  df <- df %>% 
+    left_join(
+      df_wise %>% 
+        rename(site_id = sitename),
+      by = "site_id"
+    )
+  
+  write_csv(df, file = filn)  
+} else {
+  df <- read_csv(filn)
+}
 ```
 
 Plot with alternative C:N.
@@ -190,6 +197,33 @@ gg4 <- df %>%
   theme_classic()
 
 gg1 + gg2 + gg3 + gg4
+```
+
+### Multivariate analysis
+
+```{r}
+linmod_vcmax <- lm(vcmax_obs ~ lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
+linmod_narea <- lm(Narea ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
+linmod_nmass <- lm(Nmass ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
+linmod_lma   <- lm(LMA ~       lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + soil_cn + elv, data = df)
+
+library(visreg)
+gg_vcmax <- visreg(linmod_vcmax, "soil_cn", gg = TRUE)
+gg_narea <- visreg(linmod_narea, "soil_cn", gg = TRUE)
+gg_nmass <- visreg(linmod_nmass, "soil_cn", gg = TRUE)
+gg_lma   <- visreg(linmod_lma, "soil_cn", gg = TRUE)
+
+gg_vcmax <- gg_vcmax +
+  theme_classic()
+gg_narea <- gg_narea +
+  theme_classic()
+gg_nmass <- gg_nmass +
+  theme_classic()
+gg_lma <- gg_lma +
+  theme_classic()
+
+(gg_vcmax + gg_narea) /
+  (gg_nmass + gg_lma)
 ```
 
 ### Analysis by PFT
