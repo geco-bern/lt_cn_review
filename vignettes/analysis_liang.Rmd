@@ -31,19 +31,19 @@ The intention is to use the MESI db to perform a meta analysis of variables unde
 
 Load data files
 ```{r}
-files <- list.files(path = "~/data/nfert_liang/data_csv/", full.names = TRUE)
-df <- purrr::map_dfr(as.list(files), ~read_csv(.))
-use_names <- c(
-  "variable",           "reference",          "lat",                "lon",                "mat",               
-  "map",                "ph_soil",            "species",            "family",             "genus",             
-  "photopathway",       "legume",             "managed",            "growthform",         "functionaltype",    
-  "broadleaf_conifer",  "evergreen_deciduous","ninorg_form",        "ndep_kg_ha_yr",      "duration_yr",       
-  "load",               "value_t",            "value_c",            "n_t",                "n_c",               
-  "sd_t",               "sd_c",               "ln_rr",              "v",                  "w",                 
-  "cluster",            "w_dash"
-  )
-names(df) <- use_names
-write_csv(df, file = "~/data/nfert_liang/nfert_liang_combined.csv")
+# files <- list.files(path = "~/data/nfert_liang/data_csv/", full.names = TRUE)
+# df <- purrr::map_dfr(as.list(files), ~read_csv(.))
+# use_names <- c(
+#   "variable",           "reference",          "lat",                "lon",                "mat",               
+#   "map",                "ph_soil",            "species",            "family",             "genus",             
+#   "photopathway",       "legume",             "managed",            "growthform",         "functionaltype",    
+#   "broadleaf_conifer",  "evergreen_deciduous","ninorg_form",        "ndep_kg_ha_yr",      "duration_yr",       
+#   "load",               "value_t",            "value_c",            "n_t",                "n_c",               
+#   "sd_t",               "sd_c",               "ln_rr",              "v",                  "w",                 
+#   "cluster",            "w_dash"
+#   )
+# names(df) <- use_names
+# write_csv(df, file = "~/data/nfert_liang/nfert_liang_combined.csv")
   
 # modify nfert_liang_combined.csv by hand to have nice column names.
 df <- read_csv("~/data/nfert_liang/nfert_liang_combined.csv")
@@ -51,10 +51,10 @@ df <- read_csv("~/data/nfert_liang/nfert_liang_combined.csv")
 
 Make data (more) conform with MESI.
 ```{r}
-tmp <- df %>% 
+df <- df %>% 
   mutate(db = "liang",
          treatment = "f") %>% 
-  rename(citation = refernce,
+  rename(citation = reference,
          response = variable,
          x_c = value_c,
          x_t = value_t,
@@ -76,19 +76,6 @@ df_mesi$growth_form %>% unique()
 Missing info in Liang et al.:
 - elevation (`elv`)
 
-# CO2 experiments
-
-Select experiments from which we will use data.
-```{r warning=FALSE}
-df <- df %>%
-  
-  ## CO2-only manipulation (no other factors manipulated, no crossed manipulation)
-  filter(treatment == "c") %>% 
-  
-  ## only experiments conducted in the field
-  filter(experiment_type == "field")
-```
-
 
 ## Data overview
 
@@ -101,15 +88,8 @@ df <- df %>%
 
 Let's use just data for aboveground biomass (`agb`) and from CO2-only experiments that lasted at least three years.
 ```{r}
-use_exp <- df %>% 
-  filter(!is.na(sampling_year)) %>% 
-  group_by(exp) %>% 
-  summarise(nyears = max(sampling_year)) %>% 
-  filter(nyears >= 3) %>% 
-  pull(exp)
-
 df2 <- df %>% 
-  filter(response == "agb" & exp %in% use_exp)
+  filter(duration_yr >= 3)
 ```
 
 ## Analysis
@@ -122,9 +102,11 @@ $$
 Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
 ```{r}
 df3 <- df2 %>%
+  mutate(id = 1:n()) %>% 
+  filter(sd_c > 0, sd_t > 0) %>% 
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp, response, treatment,sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, exp = citation, response, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
   drop_na() %>% 
   
   ## Get logarithm of response ratio and its variance

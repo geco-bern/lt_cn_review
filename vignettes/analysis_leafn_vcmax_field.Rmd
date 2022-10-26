@@ -229,7 +229,7 @@ gg_lma <- gg_lma +
 ### Analysis by PFT
 
 ```{r}
-# -> Ning, please add your analysis as R code here
+# -> XXX Ning, please add your analysis as R code here
 ```
 
 ## Ellsworth data
@@ -255,4 +255,4 @@ skim(df_ellsworth)
 
 ## TROBIT data
 
--> Yunke, please add your analysis code here
+-> XXX Yunke, please add your analysis code here

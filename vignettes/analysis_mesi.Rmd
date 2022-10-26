@@ -88,9 +88,11 @@ use_exp <- df %>%
   filter(nyears >= 3) %>% 
   pull(exp)
 
+use_vars <- c("asat", "vcmax", "jmax", "leaf_n", "leaf_cn", "fine_root_cn", "bgb_cn", "wood_cn", "lai", "lai_max", "anpp", "anpp_leaf", "anpp_woody", "root_n_uptake", "soil_solution_mineral_n", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3", "root_shoot_ratio", "root_production", "root_growth")
+
 df2 <- df %>% 
   filter(exp %in% use_exp) %>% 
-  filter(response %in% c("asat", "vcmax", "jmax", "leaf_n", "leaf_cn", "fine_root_cn", "bgb_cn", "wood_cn", "lai", "lai_max", "anpp", "anpp_leaf", "anpp_woody", "root_n_uptake", "soil_solution_mineral_n", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3", "root_shoot_ratio", "root_production", "root_growth"))
+  filter(response %in% use_vars)
 ```
 
 - Asat (?)
@@ -190,38 +192,12 @@ df4 <- df3 %>%
 
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
-# adjusted step size (see http://www.metafor-project.org/doku.php/tips:convergence_problems_rma)
-mod <- metafor::rma.mv( 
-  logr, 
-  logr_var,
-  method = "REML", 
-  random = ~ 1 | exp, 
-  slab = exp,
-  control = list(stepadj = 0.3), 
-  data = df4 
-  )
+source("~/lt_cn_review/R/analyse_meta.R")
 
-# get estimate and confidence intervals of scaled variable 
-meta_scaled <- predict( mod, transf = exp )
-
-df_box <- tibble(
-  response = "agb",
-  middle = mod$b[1,1],
-  ymin   = mod$ci.lb,
-  ymax   = mod$ci.ub,
-
-  middle_scaled = meta_scaled$pred,
-  ymin_scaled   = meta_scaled$ci.lb,
-  ymax_scaled   = meta_scaled$ci.ub
-  )
- 
-  # return(list(df_box = df_box, out_meta = out_meta))
-
-# # do meta-analysis on all variables
-# varlist <- unique(df_c_agg$my_varnam)
-# list_meta  <- purrr::map(as.list(varlist), ~agg_meta(df_c_agg, .))
-# df_metabox <- purrr::map_dfr(list_meta, "df_box") %>% left_join( df_varnams, by = "my_varnam" )
-# names(list_meta) <- varlist
+out <- analyse_meta(df4, nam_target = "anpp")
+out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4, nam_target = .))
+names(out) <- use_vars
+df_box <- purrr::map_dfr(out, "df_box")
 ```
 
 ## Visualisations
