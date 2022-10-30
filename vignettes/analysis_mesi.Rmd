@@ -51,7 +51,6 @@ units <- names(read_csv("~/mesi-db/data/mesi_main.csv", n_max = 0, skip = 1))
 df_units <- tibble(column = col_names,
                    units = units
                    )
-
 df <- read_csv("~/mesi-db/data/mesi_main.csv", col_names = col_names, skip = 2)
 ```
 
@@ -60,7 +59,7 @@ df <- read_csv("~/mesi-db/data/mesi_main.csv", col_names = col_names, skip = 2)
 
 Select experiments from which we will use data.
 ```{r warning=FALSE}
-df <- df %>%
+df1 <- df %>%
   
   ## CO2-only manipulation (no other factors manipulated, no crossed manipulation)
   filter(treatment == "c") %>% 
@@ -81,18 +80,23 @@ df <- df %>%
 
 Let's use just data for aboveground biomass (`agb`) and from CO2-only experiments that lasted at least three years.
 ```{r}
-use_exp <- df %>% 
+use_exp <- df1 %>% 
   filter(!is.na(sampling_year)) %>% 
   group_by(exp) %>% 
   summarise(nyears = max(sampling_year)) %>% 
   filter(nyears >= 3) %>% 
   pull(exp)
 
-use_vars <- c("asat", "vcmax", "jmax", "leaf_n", "leaf_cn", "fine_root_cn", "bgb_cn", "wood_cn", "lai", "lai_max", "anpp", "anpp_leaf", "anpp_woody", "root_n_uptake", "soil_solution_mineral_n", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3", "root_shoot_ratio", "root_production", "root_growth")
-
-df2 <- df %>% 
+## create own variables, grouping available variables
+use_vars <- c("asat", "vcmax", "leaf_n", "leaf_cn", "agb", "bgb", "lai", "root_shoot_ratio")
+df2 <- df1 %>% 
   filter(exp %in% use_exp) %>% 
-  filter(response %in% use_vars)
+  mutate(myvar = ifelse(response %in%  c("agb", "agb_c"),   "agb", response)) %>% 
+  mutate(myvar = ifelse(response %in%  c("bgb", "bgb_c"),   "bgb", response)) %>% 
+  mutate(myvar = ifelse(response %in%  c("lai", "lai_max"), "lai", response)) %>% 
+  filter(myvar %in% use_vars)
+
+  # c("asat", "vcmax", "jmax", "leaf_n", "leaf_cn", "fine_root_cn", "bgb_cn", "wood_cn", "lai", "lai_max", "anpp", "anpp_leaf", "anpp_woody", "root_n_uptake", "soil_solution_mineral_n", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3", "root_shoot_ratio", "root_production", "root_growth")
 ```
 
 - Asat (?)
@@ -127,7 +131,7 @@ Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Laj
 df3 <- df2 %>%
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp, response, treatment,sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, exp, myvar, treatment, sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
   drop_na() %>% 
   
   ## Get logarithm of response ratio and its variance
@@ -155,7 +159,7 @@ df4 <- df3 %>%
   
   # re-create ID (common ID per experiment and response variable)
   select(-id) %>%
-  mutate( id = paste(exp, response, sep = "_XXX_")) %>% 
+  mutate( id = paste(exp, myvar, sep = "_XXX_")) %>% 
   
   MAd::agg( 
     id = id, 
@@ -172,17 +176,17 @@ df4 <- df3 %>%
   # separate ID again for ease of data use
   mutate( id = str_split(id, "_XXX_") ) %>%
   mutate( exp = purrr::map_chr(id, 1),
-          response = purrr::map_chr(id, 2) ) %>%
+          myvar = purrr::map_chr(id, 2) ) %>%
   
   ## rename again
-  select(exp, response, logr = es, logr_var = var) %>%
+  select(exp, myvar, logr = es, logr_var = var) %>%
 
   ## add number of observations (sum of plots and repeated samplings)
   left_join(
     df3 %>%
-      group_by(exp, response, treatment) %>%
+      group_by(exp, myvar, treatment) %>%
       summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
-    by = c("exp", "response")
+    by = c("exp", "myvar")
   ) %>% 
   
   ## get standard error. Verify if number available observations are identical
@@ -203,9 +207,9 @@ df_box <- purrr::map_dfr(out, "df_box")
 Plot dots and my box.
 ```{r}
 df4 %>%
-  ggplot( aes(x = response, y = logr)) +
+  ggplot( aes(x = myvar, y = logr)) +
   geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
-  geom_crossbar( data = df_box, aes(x = response, y = middle, ymin = ymin, ymax = ymax), fill = "grey80", alpha = 0.6, width = 0.5 ) +
+  geom_crossbar( data = df_box, aes(x = myvar, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "tomato4", alpha = 0.6, width = 0.5 ) +
   geom_hline( yintercept = 0.0, size = 0.5 ) +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
@@ -216,6 +220,168 @@ df4 %>%
 
 ```{r}
 purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
+```
+
+Number of data points (plot-level measurements) per variable:
+```{r}
+df4 %>% 
+  group_by(myvar) %>% 
+  summarise(n_plots = sum(n_c), n_exp = n()) %>% 
+  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  knitr::kable()
+```
+
+# N fertilisation experiments
+
+Select experiments from which we will use data.
+```{r warning=FALSE}
+df <- read_csv("~/mesi-db/data/mesi_main.csv", col_names = col_names, skip = 2)
+
+df1 <- df %>%
+  
+  ## CO2-only manipulation (no other factors manipulated, no crossed manipulation)
+  filter(treatment == "f") %>% 
+  
+  ## only experiments conducted in the field
+  filter(experiment_type == "field")
+```
+
+
+## Data overview
+
+**Issues**
+
+- Is information on fumigation type available in some way? I'd like to select data from FACE and open-top chambers.
+- Some experiments don't have a name, referred to by coordinates.
+
+## Data subsetting
+
+Let's use just data for aboveground biomass (`agb`) and from CO2-only experiments that lasted at least three years.
+```{r}
+use_exp <- df1 %>% 
+  filter(!is.na(sampling_year)) %>% 
+  group_by(exp) %>% 
+  summarise(nyears = max(sampling_year)) %>% 
+  filter(nyears >= 3) %>% 
+  pull(exp)
+
+## create own variables, grouping available variables
+use_vars <- c("asat", "vcmax", "leaf_n", "leaf_cn", "agb", "bgb", "lai", "root_shoot_ratio")
+df2 <- df1 %>% 
+  filter(exp %in% use_exp) %>% 
+  mutate(myvar = ifelse(response %in%  c("agb", "agb_c"),   "agb", response)) %>% 
+  mutate(myvar = ifelse(response %in%  c("bgb", "bgb_c"),   "bgb", response)) %>% 
+  mutate(myvar = ifelse(response %in%  c("lai", "lai_max"), "lai", response)) %>% 
+  filter(myvar %in% use_vars)
+
+  # c("asat", "vcmax", "jmax", "leaf_n", "leaf_cn", "fine_root_cn", "bgb_cn", "wood_cn", "lai", "lai_max", "anpp", "anpp_leaf", "anpp_woody", "root_n_uptake", "soil_solution_mineral_n", "soil_nh4-n", "soil_nh4", "soil_no3-n", "soil_no3", "root_shoot_ratio", "root_production", "root_growth")
+```
+
+
+## Analysis
+Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
+```{r}
+df3 <- df2 %>%
+  
+  ## keep only essential variables and drop rows containing missing values for essential variables
+  select(id, exp, myvar, treatment,sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  drop_na() %>% 
+  
+  ## Get logarithm of response ratio and its variance
+  metafor::escalc( 
+    measure = "ROM", 
+    m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+    m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+    data = ., 
+    append = TRUE, 
+    var.names = c("logr", "logr_var") 
+    ) %>% 
+  
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  ## get standard error
+  mutate( logr_se = sqrt(logr_var) / sqrt(rep_t) )
+```
+
+Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
+```{r}
+df4 <- df3 %>% 
+  
+  filter(!is.na(logr_var) & !is.na(logr)) %>% 
+  
+  # re-create ID (common ID per experiment and response variable)
+  select(-id) %>%
+  mutate( id = paste(exp, myvar, sep = "_XXX_")) %>% 
+  
+  MAd::agg( 
+    id = id, 
+    es = logr, 
+    var = logr_var,
+    cor = 1.0, 
+    method = "BHHR", 
+    data = . 
+    ) %>% 
+
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  # separate ID again for ease of data use
+  mutate( id = str_split(id, "_XXX_") ) %>%
+  mutate( exp = purrr::map_chr(id, 1),
+          myvar = purrr::map_chr(id, 2) ) %>%
+  
+  ## rename again
+  select(exp, myvar, logr = es, logr_var = var) %>%
+
+  ## add number of observations (sum of plots and repeated samplings)
+  left_join(
+    df3 %>%
+      group_by(exp, myvar, treatment) %>%
+      summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
+    by = c("exp", "myvar")
+  ) %>% 
+  
+  ## get standard error. Verify if number available observations are identical
+  ## for ambient and elevated. Use N from control here (n_c).
+  mutate( logr_se = sqrt(logr_var) / sqrt(n_c) )
+```
+
+Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
+```{r}
+source("~/lt_cn_review/R/analyse_meta.R")
+out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4, nam_target = .))
+names(out) <- use_vars
+df_box <- purrr::map_dfr(out, "df_box")
+```
+
+## Visualisations
+
+Plot dots and my box.
+```{r}
+df4 %>%
+  ggplot( aes(x = myvar, y = logr)) +
+  geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
+  geom_crossbar( data = df_box, aes(x = myvar, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "tomato4", alpha = 0.6, width = 0.5 ) +
+  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  coord_flip() +
+  ylim(-1, 1) +
+  labs(title = "MESI data")
+```
+
+
+```{r}
+purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
+```
+
+Number of data points (plot-level measurements) per variable:
+```{r}
+df4 %>% 
+  group_by(myvar) %>% 
+  summarise(n_plots = sum(n_c), n_exp = n()) %>% 
+  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  knitr::kable()
 ```
 
 

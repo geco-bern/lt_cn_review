@@ -48,7 +48,8 @@ Load data files
 # modify nfert_liang_combined.csv by hand to have nice column names.
 df <- read_csv("~/data/nfert_liang/nfert_liang_combined.csv")
 
-use_vars <- c("Vcmax", "Narea", "Nmass", "LMA", "SLA")
+# use_vars <- c("Vcmax", "Narea", "Nmass", "LMA", "SLA")
+use_vars <- unique(df$variable)
 ```
 
 Make data (more) conform with MESI.
@@ -187,8 +188,8 @@ Plot dots and my box.
 df4 %>%
   ggplot( aes(x = response, y = logr)) +
   geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
-  geom_crossbar( data = df_box, aes(x = response, y = middle, ymin = ymin, ymax = ymax), fill = "grey80", alpha = 0.6, width = 0.5 ) +
-  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  geom_crossbar( data = df_box, aes(x = response, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "tomato4", alpha = 0.6, width = 0.5 ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
   ylim(-1, 1)  +

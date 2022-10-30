@@ -102,6 +102,8 @@ gg4 <- df %>%
 
 ### Analysis vs soil C:N
 
+This uses the soil C:N data as in Ning's dataset.
+
 ```{r, warning=FALSE}
 gg1 <- df %>% 
   ggplot(aes(soil_cn, log_vcmax25_obs)) +
@@ -137,11 +139,12 @@ gg1 + gg2 + gg3 + gg4
 
 ### Alternative soil C:N data extraction
 
-Taking it from ISRIC WISE30sec
+Taking it from ISRIC WISE30sec using ingestr.
 
 ```{r}
 filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN.csv"
 if (!file.exists(filn)){
+  
   library(ingestr)
   settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
   
@@ -165,8 +168,11 @@ if (!file.exists(filn)){
     )
   
   write_csv(df, file = filn)  
+  
 } else {
+  
   df <- read_csv(filn)
+  
 }
 ```
 
@@ -199,19 +205,55 @@ gg4 <- df %>%
 gg1 + gg2 + gg3 + gg4
 ```
 
+### Complement climate variables
+
+Several climatic variables are provided in the dataset. But nothing corresponding to mean annual temperature (a usual suspect!). Therefore, add mean annual temperature (`tavg`) from WorldClim for analysis.
+
+```{r eval=FALSE}
+filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN2.csv"
+if (!file.exists(filn)){
+  library(ingestr)
+  settings_worldclim <- list(varnam = c("tavg"))
+  
+  df_sites <- df %>% 
+    select(sitename = site_id, lon, lat) %>% 
+    distinct()
+  
+  df_worldclim <- ingest(
+    df_sites,
+    source    = "worldclim",
+    settings  = settings_worldclim,
+    dir       = "~/data/worldclim"
+    ) %>% 
+    unnest(data)
+  
+  df <- df %>% 
+    left_join(
+      df_worldclim %>% 
+        rename(site_id = sitename),
+      by = "site_id"
+    )
+  
+  write_csv(df, file = filn)  
+} else {
+  df <- read_csv(filn)
+}
+```
+
 ### Multivariate analysis
 
 ```{r}
-linmod_vcmax <- lm(vcmax_obs ~ lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-linmod_narea <- lm(Narea ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-linmod_nmass <- lm(Nmass ~     lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-linmod_lma   <- lm(LMA ~       lnD + mgdd0 + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+# removed: mgdd0 (don't know what it is)
+linmod_vcmax <- lm(log_vcmax25_obs ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+linmod_narea <- lm(log_Narea ~       lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+linmod_nmass <- lm(log_Nmass ~       lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
+linmod_lma   <- lm(log_LMA ~         lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
 
 library(visreg)
 gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE)
 gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE)
 gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE)
-gg_lma   <- visreg(linmod_lma, "CNrt", gg = TRUE)
+gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE)
 
 gg_vcmax <- gg_vcmax +
   theme_classic()
@@ -226,6 +268,13 @@ gg_lma <- gg_lma +
   (gg_nmass + gg_lma)
 ```
 
+**Findings:**
+
+- No decline in Vcmax with increasing soil C:N. 
+- Muted response in Narea.
+- Clear decline in Nmass with soil C:N
+- Clear increase in LMA with soil C:N
+
 ### Analysis by PFT
 
 ```{r}
@@ -233,6 +282,8 @@ gg_lma <- gg_lma +
 ```
 
 ## Ellsworth data
+
+TO EXPLORE. BUT LOW PRIORITY.
 
 The data used here is this leaf photosynthetic traits and N dataset:
 
@@ -251,81 +302,187 @@ skim(df_ellsworth)
 
 **Issues**
 
-- No longitude and latitude information in this data.
+- No longitude and latitude information in this data. Beni will contact David Ellsworth to ask for the long and lat data.
 
 ## TROBIT data
 
 ```{r}
-df_trobit <- read_csv("~/data/leaf_traits/combined_leaf_traits_updated.csv")
-
-df_trobit_sitemean <- aggregate(df_trobit,by=list(df_trobit$lon_2,df_trobit$lat_2), FUN=mean, na.rm=TRUE) #site-mean
-
-# log-transformmed
-df_trobit_sitemean <- df_trobit_sitemean %>%
-  mutate(
-    log_narea = log(narea),
-    log_nmass = log(nmass),
-    log_leafCN = log(leafCN),
-    log_LMA = log(lma),
-    log_Vcmax25 = log(Vcmax25),
-    log_cmass = log(cmass),
-    log_carea = log(carea)
-    )
-
-# larger_size <- theme(axis.text=element_text(size=20),axis.title=element_text(size=20),
-#                      plot.subtitle=element_text(size=15))
-
-a1 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "Soil C/N") +
-  larger_size
-
-a2 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "Soil C/N") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2)
-
-a3 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "Soil C/N") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2)
-
-a4 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "Soil C/N") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2)
-
-a5 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "Soil C/N") +
-  larger_size
-
-c1 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "pH") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2)
-
-c2 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "pH") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed")
-
-c3 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "pH") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed")
-
-c4 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "pH") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2)
-
-c5 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg +
-  labs(x = "pH") +
-  larger_size +
-  geom_smooth(method = "lm", color = "red", size = 2)
-
-plot_grid(a1, a2, a3, a4, a5, 
-          c1, c2, c3, c4, c5, 
-          nrow = 2)
-
-ggsave("fig/soilN_P.pdf", sep = ""), width = 12, height = 8)
+df_trobit <- read_csv("~/data/leaf_traits/leaf_soil.csv")
 ```
+
+```{r}
+## 81 sites like this:
+df_sites_trobit <- df_trobit %>% 
+  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
+  distinct(site, .keep_all = TRUE)
+nrow(df_sites_trobit)
+
+## 68 sites when using lon_2 and lat_2:
+df_sites_trobit_test <- df_trobit %>% 
+  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
+  distinct(lon_2, lat_2, .keep_all = TRUE)
+nrow(df_sites_trobit_test)
+
+## 89 sites when using lon_2, lat_2, and z (elevation):
+df_sites_trobit_test2 <- df_trobit %>% 
+  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
+  distinct(lon_2, lat_2, z, .keep_all = TRUE)
+nrow(df_sites_trobit_test2)
+```
+
+**Issues**
+
+- When using rounded lon and lat to identify sites, their distinct elevation is not considered, When using `site` to identify site ID, there may still be entries taken from distinct elevations. But in general, elevational differences are small. Therefore use `site` for aggregation.
+
+```{r}
+duplicated_sites <- df_sites_trobit_test2 %>% 
+  group_by(site) %>% 
+  summarise(n=n()) %>% 
+  filter(n>1) %>% 
+  pull(site)
+
+## note differences in elevation (column z)
+df_sites_trobit_test2 %>% 
+  filter(site %in% duplicated_sites)
+```
+
+```{r}
+df_trobit_sitemean <- df_trobit %>% 
+  group_by(site) %>% 
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
+
+# log-transform
+df_trobit_sitemean <- df_trobit_sitemean %>% 
+  mutate(across(c("Vcmax25", "Jmax25", "narea", "nmass", "leafCN", "lma"), .fns = log, .names = "log_{.col}"))
+```
+
+### Analysis vs soil C:N
+
+This uses the soil C:N data as in Ning's dataset.
+
+```{r, warning=FALSE}
+gg1 <- df_trobit_sitemean %>% 
+  ggplot(aes(CN, log_Vcmax25)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg2 <- df_trobit_sitemean %>% 
+  ggplot(aes(CN, log_narea)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg3 <- df_trobit_sitemean %>% 
+  ggplot(aes(CN, log_nmass)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg4 <- df_trobit_sitemean %>% 
+  ggplot(aes(CN, log_leafCN)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg5 <- df_trobit_sitemean %>% 
+  ggplot(aes(CN, log_lma)) +
+  geom_point() +
+  geom_smooth(color = "red", method = "lm") +
+  theme_classic()
+
+gg1 + gg2 + gg3 + gg4 + gg5
+```
+
+**Findings:**
+
+- No response in Vcmax25 and Narea
+- Clear response in Narea, leaf C:N, and LMA to soil C:N
+
+### Multivariate analysis
+
+TO BE DONE USING WORLDCLIM DATA
+
+<!-- ```{r} -->
+<!-- # removed: mgdd0 (don't know what it is) -->
+<!-- linmod_vcmax <- lm(log_vcmax25_obs ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
+<!--                    data = df_trobit_sitemean -->
+<!--                    ) -->
+<!-- linmod_narea <- lm(log_Narea ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
+<!--                    data = df_trobit_sitemean -->
+<!--                    ) -->
+<!-- linmod_nmass <- lm(log_Nmass ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
+<!--                    data = df_trobit_sitemean -->
+<!--                    ) -->
+<!-- linmod_lma   <- lm(log_LMA ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
+<!--                    data = df_trobit_sitemean -->
+<!--                    ) -->
+
+<!-- library(visreg) -->
+<!-- gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE) -->
+<!-- gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE) -->
+<!-- gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE) -->
+<!-- gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE) -->
+
+<!-- gg_vcmax <- gg_vcmax + -->
+<!--   theme_classic() -->
+<!-- gg_narea <- gg_narea + -->
+<!--   theme_classic() -->
+<!-- gg_nmass <- gg_nmass + -->
+<!--   theme_classic() -->
+<!-- gg_lma <- gg_lma + -->
+<!--   theme_classic() -->
+
+<!-- (gg_vcmax + gg_narea) / -->
+<!--   (gg_nmass + gg_lma) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- # larger_size <- theme(axis.text=element_text(size=20),axis.title=element_text(size=20), -->
+<!-- #                      plot.subtitle=element_text(size=15)) -->
+
+<!-- a1 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "Soil C/N") -->
+
+<!-- a2 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "Soil C/N") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+
+<!-- a3 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "Soil C/N") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+
+<!-- a4 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "Soil C/N") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+
+<!-- a5 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "Soil C/N") -->
+
+<!-- c1 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "pH") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+
+<!-- c2 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "pH") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed") -->
+
+<!-- c3 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "pH") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed") -->
+
+<!-- c4 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "pH") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+
+<!-- c5 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
+<!--   labs(x = "pH") + -->
+<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+
+<!-- cowplot::plot_grid(a1, a2, a3, a4, a5,  -->
+<!--           c1, c2, c3, c4, c5,  -->
+<!--           nrow = 2) -->
+
+<!-- ggsave("fig/soilN_P.pdf", sep = ""), width = 12, height = 8) -->
+<!-- ``` -->
