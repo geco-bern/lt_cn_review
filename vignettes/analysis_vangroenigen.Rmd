@@ -1,5 +1,5 @@
 ---
-title: "Experiments data analysis with Liang et al. 2020 data"
+title: "Experiments data analysis with Van Groenigen et al., 2014 data"
 author: "Beni Stocker"
 date: "`r Sys.Date()`"
 output:
@@ -23,84 +23,42 @@ library(metafor)     # for meta analysis
 library(MAd)         # for meta analysis
 ```
 
-
-The intention is to use the MESI db to perform a meta analysis of variables under N fertilisation:
-
-- ...
-
 Load data files. 
 
-I first exported each excel tab to a separate CSV file and then combined them into a single big table. Respective code is commented out below and the combined file is read directly.
 ```{r}
-# files <- list.files(path = "~/data/nfert_liang/data_csv/", full.names = TRUE)
-# df <- purrr::map_dfr(as.list(files), ~read_csv(.))
-# use_names <- c(
-#   "variable",           "reference",          "lat",                "lon",                "mat",               
-#   "map",                "ph_soil",            "species",            "family",             "genus",             
-#   "photopathway",       "legume",             "managed",            "growthform",         "functionaltype",    
-#   "broadleaf_conifer",  "evergreen_deciduous","ninorg_form",        "ndep_kg_ha_yr",      "duration_yr",       
-#   "load",               "value_t",            "value_c",            "n_t",                "n_c",               
-#   "sd_t",               "sd_c",               "ln_rr",              "v",                  "w",                 
-#   "cluster",            "w_dash"
-#   )
-# names(df) <- use_names
-# write_csv(df, file = "~/data/nfert_liang/nfert_liang_combined.csv")
-  
-# modify nfert_liang_combined.csv by hand to have nice column names.
-df <- read_csv("~/data/nfert_liang/nfert_liang_combined.csv")
+df <- read_csv("~/data/gcme/data_received_190325/soilc_decomp_vangroenigen14.csv")
 ```
 
 Make data (more) conform with MESI.
 ```{r}
-df <- df %>% 
-  mutate(db = "liang",
-         treatment = "f") %>% 
-  rename(citation = reference,
-         response = variable,
-         x_c = value_c,
-         x_t = value_t,
-         rep_c = n_c,
-         rep_t = n_t,
-         growth_form = growthform
-         ) %>% 
-  mutate(growth_form = ifelse("Woody", # Liang name
-                              "woody", # MESI name
-                              ifelse("Herb",      # Liang name
-                                     "herbaceous" # MESI name
-                                     )))
-
-# ## growth forms in Liang and in MESI
-# df$growthform %>% unique()
-# df$growth_form %>% unique()
+df1 <- df %>% 
+  ## Back-calculate SD of k from column wVk = 1/(SD_ambient^2/k_ambient^2 + SD_elevated^2/k_elevated^2)
+  ## assuming that ambient_Sd = elevated_Sd
+  rowwise() %>% 
+  rename( rep_c = n_ambient, rep_t = n_elevated, x_c = k_ambient, x_t = k_elevated,
+           exp = exp_nam_vangroenigen ) %>% 
+  mutate( sd_c = x_c * x_t / sqrt(wVk * (x_c^2 + x_t^2)) ) %>%
+  mutate( sd_t = sd_c,
+          response = "kdecay_soil" )
 ```
-
-Missing info in Liang et al.:
-- elevation (`elv`)
-
 
 ## Data overview
 
 **Issues**
 
-- Is information on fumigation type available in some way? I'd like to select data from FACE and open-top chambers.
-- Some experiments don't have a name, referred to by coordinates.
+- ...
 
 ## Data subsetting
 
-Let's use just data for above specified variables.
+Let's use just data from CO2-only experiments.
 ```{r}
-use_vars <- c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")
-
-df2 <- df %>% 
-  filter(response %in% use_vars)
+df2 <- df1 %>% 
+  
+  ## Use CO2-only treatment
+  filter(treatment == "c")
 ```
 
 ## Analysis
-
-Test analysis and plot of ANPP data. Calculate the response ratio of ANPP (mean and variance) for each experiment. To get that, we first need to calcuate the means and standard deviation for the ambient and elevated levels, pooling multiple measurements (years, sampling dates), each given with mean $\mu_i$, number $N_i$ (replicates/plots), and standard deviation $\sigma_i$ or standard error. For the function `metafor::escalc()`, we need standard deviations ($SD$). Calculate them for those rows where only standard errors $SE$ are given as:
-$$
-SD = SE \sqrt{N}
-$$
 
 Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
 ```{r}
@@ -109,7 +67,7 @@ df3 <- df2 %>%
   filter(sd_c > 0, sd_t > 0) %>% 
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp = citation, response, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, exp, response, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
   drop_na() %>% 
   
   ## Get logarithm of response ratio and its variance
@@ -136,8 +94,7 @@ df4 <- df3 %>%
   filter(!is.na(logr_var) & !is.na(logr)) %>% 
   
   # re-create ID (common ID per experiment and response variable)
-  select(-id) %>%
-  mutate( id = paste(exp, response, sep = "_XXX_")) %>% 
+  mutate( id = exp ) %>% 
   
   MAd::agg( 
     id = id, 
@@ -151,13 +108,9 @@ df4 <- df3 %>%
   ## to keep the output readable from the console output
   as_tibble() %>% 
   
-  # separate ID again for ease of data use
-  mutate( id = str_split(id, "_XXX_") ) %>%
-  mutate( exp = purrr::map_chr(id, 1),
-          response = purrr::map_chr(id, 2) ) %>%
-  
   ## rename again
-  select(exp, response, logr = es, logr_var = var) %>%
+  mutate(response = "kdecay_soil") %>% 
+  select(exp = id, response, logr = es, logr_var = var) %>%
 
   ## add number of observations (sum of plots and repeated samplings)
   left_join(
@@ -175,9 +128,8 @@ df4 <- df3 %>%
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
 source("~/lt_cn_review/R/analyse_meta.R")
-out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4 %>% rename(var = response), nam_target = .))
-names(out) <- use_vars
-df_box <- purrr::map_dfr(out, "df_box")
+out  <- analyse_meta(df4 %>% rename(var = response), nam_target = "kdecay_soil")
+df_box <- out$df_box
 ```
 
 
@@ -186,9 +138,6 @@ df_box <- purrr::map_dfr(out, "df_box")
 Plot dots and my box.
 ```{r}
 df4 %>%
-  ## give it a nice order (for plotting)
-  mutate(response = factor(response, levels = rev(c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")))) %>% 
-
   ggplot( aes(x = response, y = logr)) +
   geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
   geom_crossbar( data = df_box, aes(x = var, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "tomato4", alpha = 0.6, width = 0.5 ) +
@@ -196,7 +145,7 @@ df4 %>%
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
   ylim(-1, 1)  +
-  labs(title = "Liang et al. 2020 data", subtitle = "Response to N-fertilisation")
+  labs(title = "Van Groenigen et al. 2014 data", subtitle = "Response to CO2")
 ```
 **Findings:**
 
