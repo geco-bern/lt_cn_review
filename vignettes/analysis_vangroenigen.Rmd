@@ -140,7 +140,7 @@ Plot dots and my box.
 df4 %>%
   ggplot( aes(x = response, y = logr)) +
   geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
-  geom_crossbar( data = df_box, aes(x = var, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "tomato4", alpha = 0.6, width = 0.5 ) +
+  geom_crossbar( data = df_box, aes(x = var, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "black", alpha = 0.6, width = 0.5 ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
@@ -149,82 +149,4 @@ df4 %>%
 ```
 **Findings:**
 
-- Small and non-significant increase in Vcmax, stronger increase in Narea and Nmass.
-- Increased stomatal conductance.
-- No significant changes in LMA and SLA.
-- Strongly positive response in leaf biomass, plant-level leaf area, and ecosystem-level leaf area (LAI).
-
-Below: experiment-level meta analysis plots. Note that variable names written to (console) output are pasted in abvoe the respective "forest plot". 
-
-```{r}
-# Vcmax
-metafor::forest(out$Vcmax$modl)
-
-# Narea
-metafor::forest(out$Narea$modl)
-
-# Nmass
-metafor::forest(out$Nmass$modl)
-
-# LMA
-metafor::forest(out$LMA$modl)
-
-# SLA
-metafor::forest(out$SLA$modl)
-```
-
-
-<!-- # N fertilisation experiments -->
-
-<!-- Select data based on our purpose. -->
-<!-- ```{r} -->
-<!-- df_sub <- df %>%  -->
-<!--   # filter(str_detect(treatment, "f")) %>%  -->
-<!--   filter(treatment == "f") %>%  -->
-<!--   filter(response %in% c("vcmax", "leaf_n", "leaf_cn")) %>%  -->
-<!--   filter(experiment_type %in% c("field", "greenhouse", "growth_chamber", "outdoor_chamber"))  # not "pot" -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- df_sub %>%  -->
-<!--   select(id, exp, response, experiment_type, treatment, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>%  -->
-<!--   drop_na() %>%  -->
-<!--   group_by(response) %>%  -->
-<!--   summarise(n_data = n()) %>%  -->
-<!--   left_join( -->
-<!--     df_sub %>%  -->
-<!--       select(exp, response) %>%  -->
-<!--       drop_na() %>% -->
-<!--       distinct() %>%  -->
-<!--       group_by(response) %>%  -->
-<!--       summarise(n_experiments = n()), -->
-<!--     by = "response" -->
-<!--   ) -->
-<!-- ``` -->
-
-
-<!-- ## Analysis -->
-
-
-
-<!-- ## Comments -->
-
-<!-- - Needs extensive explanation of each column -->
-<!-- - No data for Narea or should this be derived from leaf_n and LMA? -->
-<!-- - Standardised units per variable (response). Currently, values are given in different units. This could be post-processed quite easily. -->
-<!-- - Units of `leaf_cn` is given as `"molar"` or `NA`. Please provide information about whether `NA` means gC/gN. -->
-<!-- ```{r} -->
-<!-- df %>%  -->
-<!--   filter(response %in% c("leaf_n")) %>% -->
-<!--   pull(x_units) %>%  -->
-<!--   unique() -->
-
-<!-- df %>%  -->
-<!--   filter(response %in% c("vcmax")) %>% -->
-<!--   pull(x_units) %>%  -->
-<!--   unique() -->
-
-<!-- df %>%  -->
-<!--   filter(response %in% c("leaf_cn")) %>% -->
-<!--   pull(x_units) -->
-<!-- ``` -->
+- Acceleration of soil decomposition rates (this refers to the decay rate parameter, not an absolute flux!)
