@@ -24,12 +24,7 @@ library(MAd)         # for meta analysis
 ```
 
 
-The intention is to use the MESI db to perform a meta analysis of variables under N fertilisation:
-
-- ...
-
-Load data files. 
-
+The Liang et al. data can be obtained as an Excel file from here: https://doi.org/10.1111/gcb.15071.
 I first exported each excel tab to a separate CSV file and then combined them into a single big table. Respective code is commented out below and the combined file is read directly.
 ```{r}
 # files <- list.files(path = "~/data/nfert_liang/data_csv/", full.names = TRUE)
@@ -79,11 +74,6 @@ Missing info in Liang et al.:
 
 
 ## Data overview
-
-**Issues**
-
-- Is information on fumigation type available in some way? I'd like to select data from FACE and open-top chambers.
-- Some experiments don't have a name, referred to by coordinates.
 
 ## Data subsetting
 
@@ -198,6 +188,7 @@ df4 %>%
   ylim(-1, 1)  +
   labs(title = "Liang et al. 2020 data", subtitle = "Response to N-fertilisation")
 ```
+
 **Findings:**
 
 - Small and non-significant increase in Vcmax, stronger increase in Narea and Nmass.

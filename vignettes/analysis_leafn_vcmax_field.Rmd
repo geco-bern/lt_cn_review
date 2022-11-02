@@ -275,6 +275,10 @@ gg_lma <- gg_lma +
 - Clear decline in Nmass with soil C:N
 - Clear increase in LMA with soil C:N
 
+**Issues:**
+
+- Why no MAT-like variable available? Or am I missing something?
+
 ### Analysis by PFT
 
 ```{r}
@@ -401,7 +405,7 @@ gg1 + gg2 + gg3 + gg4 + gg5
 
 ### Multivariate analysis
 
-TO BE DONE USING WORLDCLIM DATA
+TO BE DONE USING WORLDCLIM DATA, INGESTED USING INGESTR -> YUNKE
 
 <!-- ```{r} -->
 <!-- # removed: mgdd0 (don't know what it is) -->

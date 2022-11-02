@@ -48,7 +48,10 @@ df0 <- df %>%
   filter(treatment == "c") %>% 
   
   ## only experiments conducted in the field
-  filter(experiment_type == "field")
+  filter(experiment_type == "field") %>% 
+  
+  ## use only free air CO2 enrichment experiments and open-top chambers
+  filter(fumigation_type %in% c("face", "otc"))
 ```
 
 
@@ -56,7 +59,6 @@ df0 <- df %>%
 
 **Issues**
 
-- Is information on fumigation type available in some way? I'd like to select data from FACE and open-top chambers. (-> KEVIN)
 - Some experiments don't have a name, referred to by coordinates. Can they be identified to get an experiments name? (-> STUDENT)
 
 
@@ -71,18 +73,21 @@ use_exp <- df0 %>%
   filter(nyears >= 3) %>% 
   pull(exp)
 
-df1 <- df0 %>% 
-  filter(exp %in% use_exp)
+# df1 <- df0 %>% 
+#   filter(exp %in% use_exp)
+
+## xxx try: do not subset to minimum experiment length
+df1 <- df0
 ```
 
-### Available variables
-```{r}
-df1 %>%
-  group_by(response) %>%
-  summarise(n = n()) %>%
-  arrange(response) %>%
-  knitr::kable()
-```
+<!-- ### Available variables -->
+<!-- ```{r} -->
+<!-- df1 %>% -->
+<!--   group_by(response) %>% -->
+<!--   summarise(n = n()) %>% -->
+<!--   arrange(response) %>% -->
+<!--   knitr::kable() -->
+<!-- ``` -->
 
 <!-- ### Available experiments -->
 <!-- ```{r} -->
@@ -97,11 +102,7 @@ df1 %>%
 
 **Issues:**
 
-- No info on units in response variable. (-> KEVIN) Not needed for response ratio, but (critically) informative for understanding the data (e.g., selecting variables). For example, what are:
-
-  - `agb_c`
-  - `bgb_c`
-  - `leaf_n`
+- No data available for Narea (-> KEVIN)
 
   
 ```{r}
@@ -131,6 +132,19 @@ df2 <- df1 %>%
 use_vars <- unique(df2$myvar)
 ```
 
+<!-- ### Available experiments by variables -->
+<!-- ```{r} -->
+<!-- agg_by_var <- function(varnam, df){ -->
+<!--   df %>%  -->
+<!--     filter(myvar == varnam) %>%  -->
+<!--     group_by(exp) %>%  -->
+<!--     summarise(n = sum(rep_c)) -->
+<!-- } -->
+
+<!-- tmp2 <- purrr::map(as.list(use_vars), ~agg_by_var(., df2)) -->
+<!-- names(tmp2) <- use_vars -->
+<!-- tmp2$root_shoot_ratio -->
+<!-- ``` -->
 
 ## Analysis
 
@@ -145,8 +159,7 @@ df3 <- df2 %>%
   
   ## keep only essential variables and drop rows containing missing values for essential variables
   select(id, exp, myvar, treatment, sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
-  drop_na() %>% 
-  
+
   ## Get logarithm of response ratio and its variance
   metafor::escalc( 
     measure = "ROM", 
@@ -162,6 +175,11 @@ df3 <- df2 %>%
   
   ## get standard error
   mutate( logr_se = sqrt(logr_var) / sqrt(rep_t) )
+
+# ## data reduction here!
+# tmp3 <- purrr::map(as.list(use_vars), ~agg_by_var(., df3))
+# names(tmp3) <- use_vars
+# tmp3$root_shoot_ratio
 ```
 
 Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
@@ -205,6 +223,10 @@ df4 <- df3 %>%
   ## get standard error. Verify if number available observations are identical
   ## for ambient and elevated. Use N from control here (n_c).
   mutate( logr_se = sqrt(logr_var) / sqrt(n_c) )
+
+# tmp <- purrr::map(as.list(use_vars), ~agg_by_var(., df4 %>% rename(rep_c = n_c)))
+# names(tmp) <- use_vars
+# tmp$root_shoot_ratio
 ```
 
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
@@ -222,16 +244,34 @@ Number of data points (plot-level measurements) per variable:
 df4 %>% 
   group_by(myvar) %>% 
   summarise(n_plots = sum(n_c), n_exp = n()) %>% 
-  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  rename_("Variable"="myvar", "N plots"="n_plots", "N experiments"="n_exp") %>% 
   knitr::kable()
 ```
 
-Number of data points (plot-level measurements) per experiment:
+Available experiments for root:shoot ratio
 ```{r}
-df4 %>% 
-  group_by(exp) %>% 
-  summarise(n_plots = sum(n_c), n_exp = n()) %>% 
-  rename_("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+ivar <- "root_shoot_ratio"
+df4 %>%
+  filter(myvar == ivar) %>%
+  select(exp, n_c) %>%
+  knitr::kable()
+```
+
+Available experiments for inorganic N availability
+```{r}
+ivar <- "n_inorg"
+df4 %>%
+  filter(myvar == ivar) %>%
+  select(exp, n_c) %>%
+  knitr::kable()
+```
+
+Available experiments for N uptake
+```{r}
+ivar <- "n_uptake"
+df4 %>%
+  filter(myvar == ivar) %>%
+  select(exp, n_c) %>%
   knitr::kable()
 ```
 
@@ -244,7 +284,7 @@ df4 %>%
   mutate(myvar = factor(myvar, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
   
   ggplot( aes(x = myvar, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
+  geom_jitter( color = rgb(0,0,0,0.5), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
   geom_crossbar( data = df_box, 
                  aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
                  fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
@@ -264,10 +304,10 @@ df4 %>%
 - Large range in plant-level (correct: plant-level? -> KEVIN) total leaf area
 - Positive response in leaf biomass, even stronger than in LAI, indicating increase in (ecosystem-mean) LAI (-> KEVIN: to confirm: leaf_biomass and LAI are both ecosystem-level, while leaf_area is plant-level?)
 - Strong positive response in root production - strongest response among all variables and stronger than response in ANPP (even considering negative outlier)
-- No difference between (positive) aboveground biomass (`agb`) response and belowground biomass (`bgb`) response (but outlier in `agb`), but where root:shoot ratio observations available, indicating positive response (although not significant - few data points)
-- Positive response in N uptake (but few data available only!)
+- Stronger response in belowground biomass (`bgb`) than in aboveground biomass (`agb`) (but outlier in `agb`), Consistent with the positive response in root:shoot ratio (but large variation between experiments).
+- Positive response in N uptake, but large variation between experiments.
 - Decline in mineral N availability (but not significant)
-- Strong (in two experiments extraordinarily strong) reduction in stomatal conductance (`gs`).
+- Strong (in experiment extraordinarily strong) reduction in stomatal conductance (`gs`).
 
 Standard forest plots
 
@@ -290,6 +330,7 @@ for (ivar in use_vars){
 ```{r}
 ## file generated by cnreview/dataanalysis.Rmd
 df_gcme <- readRDS("~/lt_cn_review/data/df_c_agg.rds")
+write_csv(df_gcme, file = "~/lt_cn_review/data/df_co2_gcme_usedbybeni.csv")
 ```
 
 N uptake
@@ -471,8 +512,7 @@ df3 <- df2 %>%
   
   ## keep only essential variables and drop rows containing missing values for essential variables
   select(id, exp, myvar, treatment,sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
-  drop_na() %>% 
-  
+
   ## Get logarithm of response ratio and its variance
   metafor::escalc( 
     measure = "ROM", 
@@ -572,7 +612,7 @@ df4 %>%
   mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
 
   ggplot( aes(x = myvar, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.3), 
+  geom_jitter( color = rgb(0,0,0,0.5), 
                aes( size = 1/logr_se ), 
                position = position_jitter(w = 0.2, h = 0) 
                ) +
@@ -587,14 +627,15 @@ df4 %>%
 
 **Findings:**
 
-- Stronger effect on aboveground biomass than on belowground biomass - this comes out very clearly thanks to lots of data. One outlier of a very negative `agb` response (-> STUDENT)
-- Only one experiment providing an estimate of root:shoot ratio change - It's pointing towards a reduction.
-- Unsurprisingly, inorganic soil N increases in some cases very strongly, but in one experiment not.
+- Stronger effect on aboveground biomass than on belowground biomass - this comes out very clearly thanks to lots of data. One outlier of a very negative `agb` response (-> STUDENT?)
+- Reduction in root:shoot ratio - opposite to CO2 response and consistent with expectations from a functional balance.
+- Unsurprisingly, inorganic soil N increases in some cases very strongly, but large variation between experiments.
+- No significant change in root production. Is this reliable? Or just to difficult to measure?  
 
 **Issues:**
 
-- Get more data for root:shoot ratio from N-fertilisation experiments (-> EWAN).
-- Get more data for N-inorg. data from N-fertilisation experiments (-> EWAN).
+- Get more data for root:shoot ratio from N-fertilisation experiments (-> Evan).
+- Get more data for N-inorg. data from N-fertilisation experiments (-> Evan).
 
 ```{r}
 for (ivar in use_vars){
@@ -672,7 +713,7 @@ df4_agb_bnpp %>%
 
 **Issues:**
 
-- Very few data on belowground biomass response. No estimates available from other experiments, e.g., from NutNet (-> EWAN)
+- Very few data on belowground biomass response. No estimates available from other experiments, e.g., from NutNet (-> Evan)
 
 <!-- # N fertilisation experiments -->
 
