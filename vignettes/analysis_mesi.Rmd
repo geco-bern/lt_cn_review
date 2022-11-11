@@ -73,7 +73,7 @@ use_exp <- df0 %>%
   filter(nyears >= 3) %>% 
   pull(exp)
 
-# df1 <- df0 %>% 
+# df1 <- df0 %>%
 #   filter(exp %in% use_exp)
 
 ## xxx try: do not subset to minimum experiment length
@@ -115,11 +115,11 @@ df2 <- df1 %>%
   mutate(myvar = response) %>% 
 
   ## variables re-grouped by myself
-  mutate(myvar = ifelse(myvar %in%  c("agb", "agb_c"),   "agb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", "bgb_c"),   "bgb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("agb", "agb_coarse"),   "agb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass", "coarse_root_c_stock", "bgb_coarse"), "bgb", myvar)) %>% 
   mutate(myvar = ifelse(myvar %in%  c("lai", "lai_max"), "lai", myvar)) %>% 
   mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass"), "bgb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production"),
+  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production", "coarse_root_production"),
                         "root_production", 
                         myvar)) %>% 
   mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", "root_nh4_uptake", "root_no3_uptake"),
@@ -470,8 +470,11 @@ use_exp <- df0 %>%
   filter(nyears >= 3) %>% 
   pull(exp)
 
-df1 <- df0 %>% 
-  filter(exp %in% use_exp)
+# df1 <- df0 %>%
+#   filter(exp %in% use_exp)
+
+## xxx try: do not subset to minimum experiment length
+df1 <- df0
 ```
 
 ### Select variables
@@ -487,11 +490,12 @@ df2 <- df1 %>%
   mutate(myvar = response) %>% 
 
   ## variables re-grouped by myself
-  mutate(myvar = ifelse(myvar %in%  c("agb", "agb_c"),   "agb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", "bgb_c"),   "bgb", myvar)) %>% 
+  ## variables re-grouped by myself
+  mutate(myvar = ifelse(myvar %in%  c("agb", "agb_coarse"),   "agb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass", "coarse_root_c_stock", "bgb_coarse"), "bgb", myvar)) %>% 
   # mutate(myvar = ifelse(myvar %in%  c("lai", "lai_max"), "lai", myvar)) %>% 
   mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass"), "bgb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production"),
+  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production", "coarse_root_production"),
                         "root_production", 
                         myvar)) %>% 
   mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", "root_nh4_uptake", "root_no3_uptake"),
@@ -500,7 +504,7 @@ df2 <- df1 %>%
   mutate(myvar = ifelse(myvar %in%  c("soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3"), 
                         "n_inorg", 
                         myvar))
-
+  
 use_vars <- unique(df2$myvar)
 ```
 

@@ -349,7 +349,7 @@ duplicated_sites <- df_sites_trobit_test2 %>%
 df_sites_trobit_test2 %>% 
   filter(site %in% duplicated_sites)
 ```
-
+Aggregate by site (mean) and take log of variables.
 ```{r}
 df_trobit_sitemean <- df_trobit %>% 
   group_by(site) %>% 
@@ -357,12 +357,16 @@ df_trobit_sitemean <- df_trobit %>%
 
 # log-transform
 df_trobit_sitemean <- df_trobit_sitemean %>% 
-  mutate(across(c("Vcmax25", "Jmax25", "narea", "nmass", "leafCN", "lma"), .fns = log, .names = "log_{.col}"))
+  mutate(across(
+    c("Vcmax25", "Jmax25", "narea", "nmass", "leafCN", "lma"), 
+    .fns = log, 
+    .names = "log_{.col}")) %>% 
+  rename(sitename = site) # for later use in ingestr
 ```
 
 ### Analysis vs soil C:N
 
-This uses the soil C:N data as in Ning's dataset.
+This uses observed soil C:N data. Do a simple regression (plotting against soil C:N), not controlling for other factors.
 
 ```{r, warning=FALSE}
 gg1 <- df_trobit_sitemean %>% 
@@ -396,82 +400,113 @@ gg5 <- df_trobit_sitemean %>%
   theme_classic()
 
 gg1 + gg2 + gg3 + gg4 + gg5
-
-#Now: continue with this object, to do multivariate analysis basing on WORLDCLIM soil C/N data
-
-#one site has missed site-name, fill it.
-df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T]
-df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] <- "na1"
-
-df_trobit_sitemean$sitename <- df_trobit_sitemean$site
-
-library(ingestr)
-settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
-
-df_wise <- ingest(
-  df_trobit_sitemean,
-  source    = "wise",
-  settings  = settings_wise,
-  dir       = "~/data/soil/wise/"
-) %>% 
-  unnest(data)
-
-df_wise$CNrt[df_wise$CNrt<=0] <- NA 
-
-df_trobit_sitemean <- merge(df_trobit_sitemean,df_wise,by=c("sitename"),all.x=TRUE)
-
-#show ingestr's soil C/N and its relationship to leaf traits
-
-gg6 <- df_trobit_sitemean %>% 
-  ggplot(aes(CNrt, log_Vcmax25)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg7 <- df_trobit_sitemean %>% 
-  ggplot(aes(CNrt, log_narea)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg8 <- df_trobit_sitemean %>% 
-  ggplot(aes(CNrt, log_nmass)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg9 <- df_trobit_sitemean %>% 
-  ggplot(aes(CNrt, log_leafCN)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg10 <- df_trobit_sitemean %>% 
-  ggplot(aes(CNrt, log_lma)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-plot_grid(gg6,gg7,gg8,gg9,gg10)
-
-summary(lm(log_Vcmax25~CNrt,data=df_trobit_sitemean))
-summary(lm(log_narea~CNrt,data=df_trobit_sitemean))
-summary(lm(log_nmass~CNrt,data=df_trobit_sitemean))
-summary(lm(log_leafCN~CNrt,data=df_trobit_sitemean))
-summary(lm(log_lma~CNrt,data=df_trobit_sitemean))
-#all non-significant
-
 ```
 
-**Findings:**
+<!-- Now: continue with this object, to do multivariate analysis basing on WORLDCLIM soil C/N data. -->
 
-- No response in Vcmax25 and Narea
-- Clear response in Narea, leaf C:N, and LMA to soil C:N
-- For WORLDCLIM soil C/N, it is non-significant to any leaf traits.
+<!-- ```{r} -->
+<!-- #one site has missed site-name, fill it. -->
+<!-- df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] -->
+<!-- df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] <- "na1" -->
+
+<!-- df_trobit_sitemean$sitename <- df_trobit_sitemean$site -->
+
+<!-- library(ingestr) -->
+<!-- settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7) -->
+
+<!-- df_wise <- ingest( -->
+<!--   df_trobit_sitemean, -->
+<!--   source    = "wise", -->
+<!--   settings  = settings_wise, -->
+<!--   dir       = "~/data/soil/wise/" -->
+<!-- ) %>%  -->
+<!--   unnest(data) -->
+
+<!-- df_wise$CNrt[df_wise$CNrt<=0] <- NA  -->
+
+<!-- df_trobit_sitemean <- merge(df_trobit_sitemean,df_wise,by=c("sitename"),all.x=TRUE) -->
+
+<!-- #show ingestr's soil C/N and its relationship to leaf traits -->
+
+<!-- gg6 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CNrt, log_Vcmax25)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
+
+<!-- gg7 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CNrt, log_narea)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
+
+<!-- gg8 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CNrt, log_nmass)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
+
+<!-- gg9 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CNrt, log_leafCN)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
+
+<!-- gg10 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CNrt, log_lma)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
+
+<!-- gg6 + gg7 + gg8 + gg9 + gg10 -->
+
+<!-- summary(lm(log_Vcmax25~CNrt,data=df_trobit_sitemean)) -->
+<!-- summary(lm(log_narea~CNrt,data=df_trobit_sitemean)) -->
+<!-- summary(lm(log_nmass~CNrt,data=df_trobit_sitemean)) -->
+<!-- summary(lm(log_leafCN~CNrt,data=df_trobit_sitemean)) -->
+<!-- summary(lm(log_lma~CNrt,data=df_trobit_sitemean)) -->
+<!-- ``` -->
+
+<!-- **Findings:** -->
+
+<!-- - No response in Vcmax25 and Narea -->
+<!-- - Clear response in Narea, leaf C:N, and LMA to soil C:N -->
+<!-- - For WORLDCLIM soil C/N, it is non-significant to any leaf traits. -->
 
 ### Multivariate analysis
 
-TO BE DONE USING WORLDCLIM DATA, INGESTED USING INGESTR -> YUNKE -->Done
+TO BE DONE USING WORLDCLIM DATA, INGESTED USING INGESTR -> YUNKE
+
+```{r eval=FALSE}
+library(ingestr)
+
+filn <- "~/data/leaf_traits/leaf_soil_WORLDCLIM.csv"
+if (!file.exists(filn)){
+  
+  settings_worldclim <- list(varnam = c("tavg"))  # please add variables here
+  
+  df_worldclim <- ingest(
+    df_trobit_sitemean,
+    source    = "worldclim",
+    settings  = settings_worldclim,
+    dir       = "~/data/worldclim"
+    ) %>% 
+    unnest(data)
+  
+  df <- df %>% 
+    left_join(
+      df_trobit_sitemean %>% 
+        rename(site_id = sitename),
+      by = "site_id"
+    )
+  
+  write_csv(df, file = filn)  
+} else {
+  df <- read_csv(filn)
+}
+```
+
+The code below shows how this was done for Ning's data. Please do the same here with multiple WorldClim climatic variables. XXX YUNKE.
 
 <!-- ```{r} -->
 <!-- # removed: mgdd0 (don't know what it is) -->
