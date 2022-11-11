@@ -235,6 +235,7 @@ source("~/lt_cn_review/R/analyse_meta.R")
 out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4 %>% rename(var = myvar), nam_target = .))
 names(out) <- use_vars
 df_box <- purrr::map_dfr(out, "df_box")
+saveRDS(df_box, file = "../data/df_box_mesi_co2.rds")
 ```
 
 ## Final data size
@@ -579,6 +580,7 @@ source("~/lt_cn_review/R/analyse_meta.R")
 out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4 %>% rename(var = myvar), nam_target = .))
 names(out) <- use_vars
 df_box <- purrr::map_dfr(out, "df_box")
+saveRDS(df_box, file = "../data/df_box_mesi_nfert.rds")
 ```
 
 ## Final data size
