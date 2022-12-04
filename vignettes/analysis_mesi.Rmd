@@ -18,7 +18,11 @@ header-includes:
 ---
 
 ```{r, warning=FALSE}
-library(tidyverse)   # for working with ease
+library(dplyr)       # for working with ease
+library(tidyr)       # for working with ease
+library(stringr)
+library(ggplot2)
+library(readr)
 library(metafor)     # for meta analysis
 library(MAd)         # for meta analysis
 ```
@@ -28,13 +32,14 @@ library(MAd)         # for meta analysis
 
 Load and interpret MESI data files.
 ```{r message=FALSE}
-## second line provides units
-col_names <- names(read_csv("~/mesi-db/data/mesi_main.csv", n_max = 0))
-units <- names(read_csv("~/mesi-db/data/mesi_main.csv", n_max = 0, skip = 1))
-df_units <- tibble(column = col_names,
-                   units = units
-                   )
-df <- read_csv("~/mesi-db/data/mesi_main.csv", col_names = col_names, skip = 2)
+# ## second line provides units
+# col_names <- names(read_csv("~/mesi-db_test/data/mesi_main.csv", n_max = 0))
+# units <- names(read_csv("~/mesi-db_test/data/mesi_main.csv", n_max = 0, skip = 1))
+# df_units <- tibble(column = col_names,
+#                    units = units
+#                    )
+# df <- read_csv("~/mesi-db_test/data/mesi_main.csv", col_names = col_names, skip = 2)
+df <- read_csv("~/mesi-db_test/data/mesi_main.csv")
 ```
 
 
@@ -107,7 +112,7 @@ df1 <- df0
   
 ```{r}
 ## create own variable names (myvar), grouping available variables
-use_response <- c("asat", "vcmax", "jmax", "gpp", "gs", "leaf_n", "leaf_cn", "anpp", "agb", "leaf_biomass", "lai", "lai_max", "leaf_area", "bgb", "fine_root_biomass", "root_production", "fine_root_production", "root_shoot_ratio", "soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3", "root_n_uptake", "root_nh4_uptake", "root_no3_uptake")
+use_response <- c("asat", "vcmax", "jmax", "gpp", "gs", "leaf_n_area", "leaf_n_mass", "leaf_cn", "anpp", "agb", "leaf_biomass", "lai", "lai_max", "leaf_area", "bgb", "fine_root_biomass", "root_production", "fine_root_production", "root_shoot_ratio", "soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3", "root_n_uptake", "root_nh4_uptake", "root_no3_uptake")
 
 df2 <- df1 %>% 
 
@@ -282,7 +287,7 @@ Plot dots and my box.
 ```{r}
 df4 %>%
   ## give it a nice order (for plotting)
-  mutate(myvar = factor(myvar, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
+  mutate(myvar = factor(myvar, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n_area", "leaf_n_mass", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
   
   ggplot( aes(x = myvar, y = logr)) +
   geom_jitter( color = rgb(0,0,0,0.5), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
