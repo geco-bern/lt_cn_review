@@ -15,7 +15,35 @@ library(patchwork)
 library(skimr)
 ```
 
-### Traits
+# Ballpark benchmarking
+
+## Load model output
+
+Outputs are generated with `rsofun/analysis/example_cnmodel_ch_oe1.R`. Copy them to `./data/`. This is for a simulation for FLUXNET site CH-Oe1, a grassland. 
+
+```{r}
+df_rsofun <- readRDS("../data/output_cnmodel_ch_oe1.R")
+
+df_rsofun_agg <- df_rsofun |> 
+  summarise(across(where(is.numeric), mean))
+
+adf_rsofun <- df_rsofun |> 
+  as_tibble() |> 
+  mutate(year = lubridate::year(date)) |> 
+  group_by(year) |> 
+  summarise(gpp = sum(gpp)) |> 
+  ungroup() |> 
+  summarise(gpp = mean(gpp))
+
+doydf_rsofun <- df_rsofun |> 
+  as_tibble() |> 
+  mutate(doy = lubridate::yday(date)) |> 
+  group_by(doy) |> 
+  summarise(gpp = mean(gpp))
+```
+
+
+## Traits
 
 Plot distribution of all observational values (ridge plot) and cnmodel (big dot at the bottom)
 
@@ -36,39 +64,36 @@ df2 <- df |>
   filter(woody == "non-woody") |> 
   rename(lma = LMA, narea = Narea, nmass = Nmass, vcmax = vcmax_obs)
 
-gg1 <- df2 |> 
-  ggplot(aes(lma, ..density..)) +
-  geom_density(fill = "#777055ff", color = NA, alpha = 0.5) +
+gg1 <- ggplot() +
+  geom_density(aes(lma, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  geom_point(aes(x = 150, y = 0), size = 5, color = "#29a274ff") +
+  geom_point(aes(x = lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
   labs(x = "LMA") +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
 
-gg2 <- df2 |> 
-  ggplot(aes(nmass, ..density..)) +
-  geom_density(fill = "#777055ff", color = NA, alpha = 0.5) +
+gg2 <- ggplot() +
+  geom_density(aes(nmass, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  # geom_point(aes(x = 150, y = 0), size = 5, color = "#29a274ff") +
-  labs(x = expression("N"[mass])) +
+  geom_point(aes(x = narea/lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = expression(italic("N")[mass])) +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
 
-gg3 <- df2 |> 
-  ggplot(aes(narea, ..density..)) +
-  geom_density(fill = "#777055ff", color = NA, alpha = 0.5) +
+gg3 <- ggplot() +
+  geom_density(aes(narea, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  # geom_point(aes(x = 150, y = 0), size = 5, color = "#29a274ff") +
-  labs(x = expression("N"[area])) +
+  geom_point(aes(x = narea, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = expression(italic("N")[area])) +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
 
-gg4 <- df2 |> 
-  ggplot(aes(vcmax, ..density..)) +
-  geom_density(fill = "#777055ff", color = NA, alpha = 0.5) +
+## Vcmax in micro-mol m-2 s-1
+gg4 <- ggplot() +
+  geom_density(aes(vcmax, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  # geom_point(aes(x = 150, y = 0), size = 5, color = "#29a274ff") +
-  labs(x = expression("V"[cmax])) +
+  geom_point(aes(x = 1e6 * vcmax, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = expression(italic("V")[cmax])) +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
 
@@ -78,589 +103,103 @@ gg1 /
   gg4
 ```
 
+## Fluxes
 
-### fAPAR
+### GPP
+
+Plot distribution of annual total in temperate, not water-limited grasslands, obtained from FLUXNET
+
+```{r}
+library(ingestr)
+
+settings_fluxnet <- list(
+  getswc       = FALSE,
+  filter_ntdt  = FALSE,
+  threshold_GPP= 0.8,
+  remove_neg   = FALSE
+  )
+
+adf_fluxnet <- ingest(
+  siteinfo = siteinfo_fluxnet2015 |> filter(classid == "GRA" & str_detect(koeppen_code, "^C") ),
+  source   = "fluxnet",
+  getvars  = list(gpp = "GPP_NT_VUT_REF"),
+  dir      = "~/data/FLUXNET-2015_Tier1/20191024/YY/", # adjust this with your local path
+  settings = settings_fluxnet,
+  timescale= "y"
+  )
+
+adf_fluxnet <- adf_fluxnet |> 
+  mutate(data = purrr::map(data, ~summarise(., gpp = mean(gpp)))) |> 
+  unnest(data)
+```
+
+```{r}
+ggplot() +
+  geom_histogram(data = adf_fluxnet, aes(gpp, ..count..), 
+                 fill = "#777055ff", color = NA, alpha = 0.5,
+                 binwidth = 200) +
+  theme_classic() +
+  geom_point(aes(x = gpp, y = 0), data = adf_rsofun, size = 10, color = "#29a274ff") +
+  labs(x = expression(paste("GPP (gC m"^-2, "yr"^-1, ")"))) +
+  coord_cartesian(clip = 'off') +
+  scale_y_continuous(expand = c(0, 0))
+```
+
+### NPP
+
+Plot distribution of total annual biomass production of unmanaged grasslands, obtained from Matteo’s dataset.
+
+## Allocation
+
+Plot distribution of root mass fractions in temperate, not water-limited grasslands
+
+# Seasonality benchmarking
+
+→ Master student
+
+## fAPAR
 
 - Plot mean seasonal cycle of observations and modelled fAPAR of different grassland (FLUXNET2015) sites separately.
 
-### Fluxes: GPP and NEE
+## Fluxes
 
-- Plot mean seasonal cycle of observations and modelled GPP and NEE of different grassland (FLUXNET2015) sites separately.
+### GPP
 
+Plot mean seasonal cycle of observations and modelled GPP and NEE of different grassland (FLUXNET2015) sites separately.
+    
+```{r}
+settings_fluxnet <- list(
+  getswc       = FALSE,
+  filter_ntdt  = FALSE,
+  threshold_GPP= 0.8,
+  remove_neg   = FALSE
+  )
 
-## Ning Dong's data
+ddf_fluxnet <- ingest(
+  siteinfo = siteinfo_fluxnet2015 |> filter(sitename == "CH-Oe1"),
+  source   = "fluxnet",
+  getvars  = list(gpp = "GPP_NT_VUT_REF"),
+  dir      = "~/data/FLUXNET-2015_Tier1/20191024/DD/", # adjust this with your local path
+  settings = settings_fluxnet,
+  timescale= "d"
+  )
 
-The data used here is this leaf photosynthetic traits and N dataset:
+doydf_fluxnet <- ddf_fluxnet |> 
+  unnest(data) |> 
+  mutate(doy = lubridate::yday(date)) |> 
+  group_by(doy) |> 
+  summarise(gpp = mean(gpp))
+```    
 
-*Data reference*
-
-Dong, Ning, Prentice, Iain Colin, Wright, Ian, Wang, Han, Atkin,Owen, Bloomfield, Keith, Domingues, Tomas, Gleason, Sean, Maire, Vincent, Onoda, Yusuke, Poorter, Hendrik, & Smith, Nicholas. (2022). dataset for paper "Leaf nitrogen from the perspective of optimal plant function" (Version v1) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.6831903
-
-*Paper reference*
-
-Dong, N., Prentice, I. C., Wright, I. J., Wang, H., Atkin, O. K., Bloomfield, K. J., Domingues, T. F., Gleason, S. M., Maire, V., Onoda, Y., Poorter, H., & Smith, N. G. (2022). Leaf nitrogen from the perspective of optimal plant function. Journal of Ecology, 00, 1– 18. https://doi.org/10.1111/1365-2745.13967
 
 ```{r}
-df <- read_csv("~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong.csv") %>% 
-  rename(lat = Latitude, lon = longitude)
-```
-
-Quick overview of data.
-```{r}
-skim(df)
-```
-
-### Distribution of data
-
-```{r, warning=FALSE}
-gg1 <- df %>% 
-  ggplot(aes(vcmax25_obs)) +
-  geom_density() +
-  labs(title = "Nmass")
-
-gg2 <- df %>% 
-  ggplot(aes(Narea)) +
-  geom_density() +
-  labs(title = "Narea")
-
-gg3 <- df %>% 
-  ggplot(aes(Nmass)) +
-  geom_density() +
-  labs(title = "Nmass")
-
-gg4 <- df %>% 
-  ggplot(aes(LMA)) +
-  geom_density() +
-  labs(title = "LMA")
-
-(gg1 + gg2) /
-  (gg3 + gg4)
-```
-
-Log-transform all variables to make them closer to normally distributed.
-
-```{r, warning=FALSE}
-df <- df %>% 
-  mutate(log_vcmax25_obs = log(vcmax25_obs),
-         log_Narea = log(Narea),
-         log_Nmass = log(Nmass),
-         log_LMA = log(LMA),
-         )
-```
-
-```{r, warning=FALSE}
-gg1 <- df %>% 
-  ggplot(aes(log_vcmax25_obs)) +
-  geom_density() +
-  labs(title = "Nmass")
-
-gg2 <- df %>% 
-  ggplot(aes(log_Narea)) +
-  geom_density() +
-  labs(title = "Narea")
-
-gg3 <- df %>% 
-  ggplot(aes(log_Nmass)) +
-  geom_density() +
-  labs(title = "Nmass")
-
-gg4 <- df %>% 
-  ggplot(aes(log_LMA)) +
-  geom_density() +
-  labs(title = "LMA")
-
-(gg1 + gg2) /
-  (gg3 + gg4)
-```
-
-### Analysis vs soil C:N
-
-This uses the soil C:N data as in Ning's dataset.
-
-```{r, warning=FALSE}
-gg1 <- df %>% 
-  ggplot(aes(soil_cn, log_vcmax25_obs)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
+ggplot() +
+  geom_line(data = doydf_fluxnet, aes(doy, gpp), color = "#777055ff") +
+  geom_line(data = doydf_rsofun, aes(doy, gpp), color = "#29a274ff") +
   theme_classic()
-
-gg2 <- df %>% 
-  ggplot(aes(soil_cn, log_Narea)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg3 <- df %>% 
-  ggplot(aes(soil_cn, log_Nmass)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg4 <- df %>% 
-  ggplot(aes(soil_cn, log_LMA)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg1 + gg2 + gg3 + gg4
 ```
-
-
-**Issues**
-
-- Why soil C:N in discrete values? Where is it extracted from?
-
-### Alternative soil C:N data extraction
-
-Taking it from ISRIC WISE30sec using ingestr.
-
-```{r}
-filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN.csv"
-if (!file.exists(filn)){
-  
-  library(ingestr)
-  settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
-  
-  df_sites <- df %>% 
-    select(sitename = site_id, lon, lat) %>% 
-    distinct()
-  
-  df_wise <- ingest(
-    df_sites,
-    source    = "wise",
-    settings  = settings_wise,
-    dir       = "~/data/soil/wise/"
-    ) %>% 
-    unnest(data)
-  
-  df <- df %>% 
-    left_join(
-      df_wise %>% 
-        rename(site_id = sitename),
-      by = "site_id"
-    )
-  
-  write_csv(df, file = filn)  
-  
-} else {
-  
-  df <- read_csv(filn)
-  
-}
-```
-
-Plot with alternative C:N.
-```{r, warning=FALSE}
-gg1 <- df %>% 
-  ggplot(aes(CNrt, log_vcmax25_obs)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg2 <- df %>% 
-  ggplot(aes(CNrt, log_Narea)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg3 <- df %>% 
-  ggplot(aes(CNrt, log_Nmass)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg4 <- df %>% 
-  ggplot(aes(CNrt, log_LMA)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg1 + gg2 + gg3 + gg4
-```
-
-### Complement climate variables
-
-Several climatic variables are provided in the dataset. But nothing corresponding to mean annual temperature (a usual suspect!). Therefore, add mean annual temperature (`tavg`) from WorldClim for analysis.
-
-```{r eval=FALSE}
-filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN2.csv"
-if (!file.exists(filn)){
-  library(ingestr)
-  settings_worldclim <- list(varnam = c("tavg"))
-  
-  df_sites <- df %>% 
-    select(sitename = site_id, lon, lat) %>% 
-    distinct()
-  
-  df_worldclim <- ingest(
-    df_sites,
-    source    = "worldclim",
-    settings  = settings_worldclim,
-    dir       = "~/data/worldclim"
-    ) %>% 
-    unnest(data)
-  
-  df <- df %>% 
-    left_join(
-      df_worldclim %>% 
-        rename(site_id = sitename),
-      by = "site_id"
-    )
-  
-  write_csv(df, file = filn)  
-} else {
-  df <- read_csv(filn)
-}
-```
-
-### Multivariate analysis
-
-```{r}
-# removed: mgdd0 (don't know what it is)
-linmod_vcmax <- lm(log_vcmax25_obs ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-linmod_narea <- lm(log_Narea ~       lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-linmod_nmass <- lm(log_Nmass ~       lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-linmod_lma   <- lm(log_LMA ~         lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
-
-library(visreg)
-gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE)
-gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE)
-gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE)
-gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE)
-
-gg_vcmax <- gg_vcmax +
-  theme_classic()
-gg_narea <- gg_narea +
-  theme_classic()
-gg_nmass <- gg_nmass +
-  theme_classic()
-gg_lma <- gg_lma +
-  theme_classic()
-
-(gg_vcmax + gg_narea) /
-  (gg_nmass + gg_lma)
-```
-
-**Findings:**
-
-- No decline in Vcmax with increasing soil C:N. 
-- Muted response in Narea.
-- Clear decline in Nmass with soil C:N
-- Clear increase in LMA with soil C:N
-
-**Issues:**
-
-- Why no MAT-like variable available? Or am I missing something?
-
-### Analysis by PFT
-
-```{r}
-# -> XXX Ning, please add your analysis as R code here
-```
-
-## Ellsworth data
-
-TO EXPLORE. BUT LOW PRIORITY.
-
-The data used here is this leaf photosynthetic traits and N dataset:
-
-*Data reference*
-
-Ellsworth, David; Wright, Ian; Crous, Kristine Y.; Goll, Daniel S; Zaehle, Sönke; Cernusak, Lucas A.; et al. (2022): Convergence in phosphorus constraints to photosynthesis dataset. figshare. Dataset. https://doi.org/10.6084/m9.figshare.20010485.v1 
-
-*Paper reference*
-
-Ellsworth, D.S., Crous, K.Y., De Kauwe, M.G. et al. Convergence in phosphorus constraints to photosynthesis in forests around the world. Nat Commun 13, 5005 (2022). https://doi.org/10.1038/s41467-022-32545-0
-
-```{r}
-df_ellsworth <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv")
-skim(df_ellsworth)
-```
-
-**Issues**
-
-- No longitude and latitude information in this data. Beni will contact David Ellsworth to ask for the long and lat data.
-
-## TROBIT data
-
-```{r}
-df_trobit <- read_csv("~/data/leaf_traits/leaf_soil.csv")
-```
-
-```{r}
-## 81 sites like this:
-df_sites_trobit <- df_trobit %>% 
-  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
-  distinct(site, .keep_all = TRUE)
-nrow(df_sites_trobit)
-
-## 68 sites when using lon_2 and lat_2:
-df_sites_trobit_test <- df_trobit %>% 
-  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
-  distinct(lon_2, lat_2, .keep_all = TRUE)
-nrow(df_sites_trobit_test)
-
-## 89 sites when using lon_2, lat_2, and z (elevation):
-df_sites_trobit_test2 <- df_trobit %>% 
-  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
-  distinct(lon_2, lat_2, z, .keep_all = TRUE)
-nrow(df_sites_trobit_test2)
-```
-
-**Issues**
-
-- When using rounded lon and lat to identify sites, their distinct elevation is not considered, When using `site` to identify site ID, there may still be entries taken from distinct elevations. But in general, elevational differences are small. Therefore use `site` for aggregation.
-
-```{r}
-duplicated_sites <- df_sites_trobit_test2 %>% 
-  group_by(site) %>% 
-  summarise(n=n()) %>% 
-  filter(n>1) %>% 
-  pull(site)
-
-## note differences in elevation (column z)
-df_sites_trobit_test2 %>% 
-  filter(site %in% duplicated_sites)
-```
-Aggregate by site (mean) and take log of variables.
-```{r}
-df_trobit_sitemean <- df_trobit %>% 
-  group_by(site) %>% 
-  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
-
-# log-transform
-df_trobit_sitemean <- df_trobit_sitemean %>% 
-  mutate(across(
-    c("Vcmax25", "Jmax25", "narea", "nmass", "leafCN", "lma"), 
-    .fns = log, 
-    .names = "log_{.col}")) %>% 
-  rename(sitename = site) # for later use in ingestr
-```
-
-### Analysis vs soil C:N
-
-This uses observed soil C:N data. Do a simple regression (plotting against soil C:N), not controlling for other factors.
-
-```{r, warning=FALSE}
-gg1 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_Vcmax25)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg2 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_narea)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg3 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_nmass)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg4 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_leafCN)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg5 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_lma)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
-
-gg1 + gg2 + gg3 + gg4 + gg5
-```
-
-<!-- Now: continue with this object, to do multivariate analysis basing on WORLDCLIM soil C/N data. -->
-
-<!-- ```{r} -->
-<!-- #one site has missed site-name, fill it. -->
-<!-- df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] -->
-<!-- df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] <- "na1" -->
-
-<!-- df_trobit_sitemean$sitename <- df_trobit_sitemean$site -->
-
-<!-- library(ingestr) -->
-<!-- settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7) -->
-
-<!-- df_wise <- ingest( -->
-<!--   df_trobit_sitemean, -->
-<!--   source    = "wise", -->
-<!--   settings  = settings_wise, -->
-<!--   dir       = "~/data/soil/wise/" -->
-<!-- ) %>%  -->
-<!--   unnest(data) -->
-
-<!-- df_wise$CNrt[df_wise$CNrt<=0] <- NA  -->
-
-<!-- df_trobit_sitemean <- merge(df_trobit_sitemean,df_wise,by=c("sitename"),all.x=TRUE) -->
-
-<!-- #show ingestr's soil C/N and its relationship to leaf traits -->
-
-<!-- gg6 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_Vcmax25)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg7 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_narea)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg8 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_nmass)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg9 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_leafCN)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg10 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_lma)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg6 + gg7 + gg8 + gg9 + gg10 -->
-
-<!-- summary(lm(log_Vcmax25~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_narea~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_nmass~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_leafCN~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_lma~CNrt,data=df_trobit_sitemean)) -->
-<!-- ``` -->
-
-<!-- **Findings:** -->
-
-<!-- - No response in Vcmax25 and Narea -->
-<!-- - Clear response in Narea, leaf C:N, and LMA to soil C:N -->
-<!-- - For WORLDCLIM soil C/N, it is non-significant to any leaf traits. -->
-
-### Multivariate analysis
-
-TO BE DONE USING WORLDCLIM DATA, INGESTED USING INGESTR -> YUNKE
-
-```{r eval=FALSE}
-library(ingestr)
-
-filn <- "~/data/leaf_traits/leaf_soil_WORLDCLIM.csv"
-if (!file.exists(filn)){
-  
-  settings_worldclim <- list(varnam = c("tavg"))  # please add variables here
-  
-  df_worldclim <- ingest(
-    df_trobit_sitemean,
-    source    = "worldclim",
-    settings  = settings_worldclim,
-    dir       = "~/data/worldclim"
-    ) %>% 
-    unnest(data)
-  
-  df <- df %>% 
-    left_join(
-      df_trobit_sitemean %>% 
-        rename(site_id = sitename),
-      by = "site_id"
-    )
-  
-  write_csv(df, file = filn)  
-} else {
-  df <- read_csv(filn)
-}
-```
-
-The code below shows how this was done for Ning's data. Please do the same here with multiple WorldClim climatic variables. XXX YUNKE.
-
-<!-- ```{r} -->
-<!-- # removed: mgdd0 (don't know what it is) -->
-<!-- linmod_vcmax <- lm(log_vcmax25_obs ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-<!-- linmod_narea <- lm(log_Narea ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-<!-- linmod_nmass <- lm(log_Nmass ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-<!-- linmod_lma   <- lm(log_LMA ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-
-<!-- library(visreg) -->
-<!-- gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE) -->
-<!-- gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE) -->
-<!-- gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE) -->
-<!-- gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE) -->
-
-<!-- gg_vcmax <- gg_vcmax + -->
-<!--   theme_classic() -->
-<!-- gg_narea <- gg_narea + -->
-<!--   theme_classic() -->
-<!-- gg_nmass <- gg_nmass + -->
-<!--   theme_classic() -->
-<!-- gg_lma <- gg_lma + -->
-<!--   theme_classic() -->
-
-<!-- (gg_vcmax + gg_narea) / -->
-<!--   (gg_nmass + gg_lma) -->
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-<!-- # larger_size <- theme(axis.text=element_text(size=20),axis.title=element_text(size=20), -->
-<!-- #                      plot.subtitle=element_text(size=15)) -->
-
-<!-- a1 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") -->
-
-<!-- a2 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- a3 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- a4 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- a5 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") -->
-
-<!-- c1 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- c2 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed") -->
-
-<!-- c3 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed") -->
-
-<!-- c4 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- c5 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- cowplot::plot_grid(a1, a2, a3, a4, a5,  -->
-<!--           c1, c2, c3, c4, c5,  -->
-<!--           nrow = 2) -->
-
-<!-- ggsave("fig/soilN_P.pdf", sep = ""), width = 12, height = 8) -->
-<!-- ``` -->
+    
+### NEE    
+    
+- N2O
+    - Plot time series from simulation where forcing is well-known (building on what Yunke started)
