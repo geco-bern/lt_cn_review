@@ -503,12 +503,6 @@ out$gg +
   xlim(0, 18) + ylim(0, 18)
 ```
 
-### Analysis by PFT
-
-```{r}
-# -> XXX Ning, please add your analysis as R code here
-```
-
 ## Ellsworth data
 
 TO EXPLORE. BUT LOW PRIORITY.
@@ -798,4 +792,23 @@ gg_cn <- gg_cn +
 (gg_vcmax + gg_narea) /
   (gg_nmass + gg_lma) / 
   (gg_cn + gg_cn)
+```
+
+## C:N by PFT
+
+*Paper reference*
+
+Kattge, J., Bönisch, G., Díaz, S., Lavorel, S., Prentice, I. C., Leadley, P., . . . Wirth, C. (2020). TRY plant trait database – enhanced coverage and open access. Global Change Biology, 26(1), 119-188. doi:10.1111/gcb.14904
+
+```{r}
+df <- read_csv("~/scratch/try_kattge_2020/data_cn_pdf.csv")
+```
+
+```{r}
+df |> 
+  ggplot(aes(PFTs, CN)) +
+  geom_boxplot(fill = "azure3") +
+  coord_flip() +
+  theme_classic() +
+  labs(x = "PFT", y = expression(paste("C:N"[leaf])))
 ```
