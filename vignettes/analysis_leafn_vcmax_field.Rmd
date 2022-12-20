@@ -13,6 +13,9 @@ library(tidyverse)
 library(rbeni)
 library(patchwork)
 library(skimr)
+library(visreg)
+library(ingestr)
+library(readr)
 ```
 
 ## Ning Dong's data
@@ -43,7 +46,7 @@ skim(df)
 gg1 <- df %>% 
   ggplot(aes(vcmax25_obs)) +
   geom_density() +
-  labs(title = "Nmass")
+  labs(title = "Vcmax25")
 
 gg2 <- df %>% 
   ggplot(aes(Narea)) +
@@ -139,14 +142,14 @@ gg1 + gg2 + gg3 + gg4
 
 ### Alternative soil C:N data extraction
 
-Taking it from ISRIC WISE30sec using ingestr.
+Taking it from ISRIC WISE30sec using ingestr. This also extracts soil pH.
 
 ```{r}
-filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN.csv"
+filn <- "../data/data_leafn_vcmax_ning_dong_ALTCNPH.csv"
 if (!file.exists(filn)){
   
   library(ingestr)
-  settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7)
+  settings_wise <- get_settings_wise(varnam = c("CNrt", "PHAQ"), layer = 1:7)
   
   df_sites <- df %>% 
     select(sitename = site_id, lon, lat) %>% 
@@ -207,40 +210,224 @@ gg1 + gg2 + gg3 + gg4
 
 ### Complement climate variables
 
-Several climatic variables are provided in the dataset. But nothing corresponding to mean annual temperature (a usual suspect!). Therefore, add mean annual temperature (`tavg`) from WorldClim for analysis.
+Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://computationales.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
 
-```{r eval=FALSE}
-filn <- "~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong_ALTCN2.csv"
-if (!file.exists(filn)){
-  library(ingestr)
-  settings_worldclim <- list(varnam = c("tavg"))
+- growth temperature
+- growing season mean VPD
+- growing season mean PPFD
+- N deposition
+
+```{r eval=TRUE}
+filn <- "../data/data_leafn_vcmax_ning_dong_ALTCLIM.csv"
+
+ingest_wc_bychunk <- function(idxs){
   
+  print(idxs)
+  
+  ## collect WC data for idxs sites
+  out <- ingest(
+    df_sites |> 
+      slice(idxs),
+    source    = "worldclim",
+    settings  = settings_wc,
+    dir       = "~/data/worldclim/"
+    )
+  
+  ## get growting-season means
+  out <- out |> 
+  
+    unnest(data) |> 
+  
+    ## add latitude
+    left_join(df_sites, by = "sitename") |> 
+    
+    ## vapour pressure kPa -> Pa
+    mutate(vapr = vapr * 1e3) |>
+    
+    ## PPFD from solar radiation: kJ m-2 day-1 -> mol m−2 s−1 PAR
+    mutate(ppfd = 1e3 * srad * kfFEC * 1.0e-6 / (60 * 60 * 24)) |>
+  
+    ## calculate VPD (Pa) based on tmin and tmax
+    rowwise() |> 
+    mutate(vpd = ingestr::calc_vpd(eact = vapr, tmin = tmin, tmax = tmax)) |> 
+    
+    ## calculate growth temperature (average daytime temperature)
+    mutate(doy = lubridate::yday(lubridate::ymd("2001-01-15") + months(month - 1))) |> 
+    mutate(tgrowth = ingestr::calc_tgrowth(tmin, tmax, lat, doy)) |> 
+    
+    ## average over growing season (where Tgrowth > 0 deg C)
+    group_by(sitename) |> 
+    nest() |> 
+    mutate(data_growingseason = purrr::map(data, ~get_growingseasonmean(.))) |> 
+    unnest(data_growingseason) |> 
+    select(-data)
+  
+  return(out)
+}
+  
+get_growingseasonmean <- function(df){
+  df |> 
+    filter(tgrowth > 0) |> 
+    ungroup() |> 
+    summarise(across(c(tgrowth, vpd, ppfd), mean))
+}
+
+kfFEC <- 2.04
+ 
+if (!file.exists(filn)){
+  
+  library(ingestr)
+
+  ## Collect climatic variables from WorldClim----------------------------------  
   df_sites <- df %>% 
     select(sitename = site_id, lon, lat) %>% 
     distinct()
+
+  settings_wc <- list(varnam = c("tmin", "tmax", "vapr", "srad"))
+
+  ## do this in rounds, otherwise too memory demanding
+  nchunk <- nrow(df_sites)  # only this extreme variant seems to work
+  nrows_chunk <- ceiling(nrow(df_sites)/nchunk)
+  irow_chunk <- split(seq(nrow(df_sites)), ceiling(seq_along(seq(nrow(df_sites)))/nrows_chunk))
   
-  df_worldclim <- ingest(
-    df_sites,
-    source    = "worldclim",
-    settings  = settings_worldclim,
-    dir       = "~/data/worldclim"
-    ) %>% 
-    unnest(data)
+  df_wc <- purrr::map_dfr(
+    irow_chunk,
+    ~ingest_wc_bychunk(.)
+  )
   
+  write_csv(df_wc, file = "../data/df_wc.csv")
+  
+  
+  ## Collect N deposition-------------------------------------------------------  
+  df_ndep <- ingest(df_sites |> 
+                      mutate(sitename = as.character(sitename)) |> 
+                      mutate(year_start = 1990, year_end = 2009),
+                    source    = "ndep",
+                    timescale = "y",
+                    dir       = "~/data/ndep_lamarque/",
+                    verbose   = FALSE
+                    ) |> 
+    unnest(cols = data) |> 
+    group_by(sitename) |> 
+    summarise(noy = mean(noy), nhx = mean(nhx)) |> 
+    mutate(ndep = noy + nhx) |> 
+    select(-noy, -nhx)
+  
+  ## Combine data---------------------------------------------------------------
   df <- df %>% 
     left_join(
-      df_worldclim %>% 
+      df_wc %>% 
         rename(site_id = sitename),
+      by = "site_id"
+    ) |> 
+    left_join(
+      df_ndep %>% 
+        mutate(site_id = as.numeric(sitename)),
       by = "site_id"
     )
   
   write_csv(df, file = filn)  
+  
 } else {
   df <- read_csv(filn)
 }
 ```
 
 ### Multivariate analysis
+
+#### New predictors
+
+Check distribution of predictor variables.
+
+```{r}
+# looks alright
+df |> 
+  ggplot(aes(tgrowth)) +
+  geom_density() +
+  labs(title = "Tgrowth")
+
+# vpd needs to be transformed
+df |> 
+  ggplot(aes(log(vpd))) +
+  geom_density() +
+  labs(title = "VPD")
+df <- df |> 
+  mutate(log_vpd = log(vpd))
+
+# ppfd looks ok
+df |> 
+  ggplot(aes(ppfd)) +
+  geom_density() +
+  labs(title = "PPFD")
+
+# pH looks ok
+df |> 
+  ggplot(aes(PHAQ)) +
+  geom_density() +
+  labs(title = "pH")
+
+# ndep needs to be tranformed
+df |> 
+  ggplot(aes(log(ndep))) +
+  geom_density() +
+  labs(title = "N deposition")
+
+df <- df |> 
+  mutate(log_ndep = log(ndep))
+```
+
+Fit multivariate models.
+```{r}
+# removed: mgdd0 (don't know what it is)
+linmod_vcmax <- lm(log_vcmax25_obs ~ log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+linmod_narea <- lm(log_Narea ~       log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+linmod_nmass <- lm(log_Nmass ~       log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+linmod_lma   <- lm(log_LMA ~         log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+```
+
+Partial relationship analysis with soil C:N.
+```{r}
+gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE)
+gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE)
+gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE)
+gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE)
+
+gg_vcmax <- gg_vcmax +
+  theme_classic()
+gg_narea <- gg_narea +
+  theme_classic()
+gg_nmass <- gg_nmass +
+  theme_classic()
+gg_lma <- gg_lma +
+  theme_classic()
+
+(gg_vcmax + gg_narea) /
+  (gg_nmass + gg_lma)
+```
+
+Partial relationship analysis with N deposition
+```{r}
+gg_vcmax <- visreg(linmod_vcmax, "log_ndep", gg = TRUE)
+gg_narea <- visreg(linmod_narea, "log_ndep", gg = TRUE)
+gg_nmass <- visreg(linmod_nmass, "log_ndep", gg = TRUE)
+gg_lma   <- visreg(linmod_lma,   "log_ndep", gg = TRUE)
+
+gg_vcmax <- gg_vcmax +
+  theme_classic()
+gg_narea <- gg_narea +
+  theme_classic()
+gg_nmass <- gg_nmass +
+  theme_classic()
+gg_lma <- gg_lma +
+  theme_classic()
+
+(gg_vcmax + gg_narea) /
+  (gg_nmass + gg_lma)
+```
+
+
+
+#### Old predictors
 
 ```{r}
 # removed: mgdd0 (don't know what it is)
@@ -278,6 +465,43 @@ gg_lma <- gg_lma +
 **Issues:**
 
 - Why no MAT-like variable available? Or am I missing something?
+
+### Coefficients
+
+Consider leaf Narea as consisting of a metabolic $N_v$ and a structural $N_s$ leaf N component:
+$$
+N_\text{area} = N_v + N_s
+$$
+and that $N_v$ is proportional to $V_\text{cmax25}$, while $N_s$ is proportional to LMA (with a zero-y-axis intercept).
+```{r}
+linmod_leafn = lm(Narea ~ vcmax25_obs + LMA + 0, data = df)
+summary(linmod_leafn)
+```
+These coefficients can now be used in the CN-model for modelling leaf C:N with prescribed species-specific LMA. 
+
+For reference, the following values are returned:
+```{r, eval=FALSE}
+# Coefficients:
+#              Estimate Std. Error t value Pr(>|t|)    
+# vcmax25_obs 0.0136818  0.0004412   31.01   <2e-16 ***
+# LMA         0.0109072  0.0001553   70.22   <2e-16 ***
+```
+
+The coefficient for vcmax25_obs is in units of gN m-2 / (micro-mol m-2 s-1).
+
+The coefficient for LMA is in units of gN m-2 / (gDM m-2).
+
+Visualise model fit.
+```{r}
+df <- df |> 
+  mutate(narea_pred = predict(linmod_leafn, newdata = df))
+
+out <- df |> 
+  analyse_modobs2(mod = "narea_pred", obs = "Narea") 
+
+out$gg +
+  xlim(0, 18) + ylim(0, 18)
+```
 
 ### Analysis by PFT
 
@@ -402,192 +626,176 @@ gg5 <- df_trobit_sitemean %>%
 gg1 + gg2 + gg3 + gg4 + gg5
 ```
 
-<!-- Now: continue with this object, to do multivariate analysis basing on WORLDCLIM soil C/N data. -->
 
-<!-- ```{r} -->
-<!-- #one site has missed site-name, fill it. -->
-<!-- df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] -->
-<!-- df_trobit_sitemean$site[is.na(df_trobit_sitemean$site)==T] <- "na1" -->
+### Complement climate variables
 
-<!-- df_trobit_sitemean$sitename <- df_trobit_sitemean$site -->
+Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://computationales.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
 
-<!-- library(ingestr) -->
-<!-- settings_wise <- get_settings_wise(varnam = c("CNrt"), layer = 1:7) -->
+- growth temperature
+- growing season mean VPD
+- growing season mean PPFD
+- N deposition
 
-<!-- df_wise <- ingest( -->
-<!--   df_trobit_sitemean, -->
-<!--   source    = "wise", -->
-<!--   settings  = settings_wise, -->
-<!--   dir       = "~/data/soil/wise/" -->
-<!-- ) %>%  -->
-<!--   unnest(data) -->
+```{r}
+filn <- "../data/data_leafn_vcmax_trobit_ALTCLIM.csv"
 
-<!-- df_wise$CNrt[df_wise$CNrt<=0] <- NA  -->
+get_growingseasonmean <- function(df){
+  df |> 
+    filter(tgrowth > 0) |> 
+    ungroup() |> 
+    summarise(across(c(tgrowth, vpd, ppfd), mean))
+}
 
-<!-- df_trobit_sitemean <- merge(df_trobit_sitemean,df_wise,by=c("sitename"),all.x=TRUE) -->
-
-<!-- #show ingestr's soil C/N and its relationship to leaf traits -->
-
-<!-- gg6 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_Vcmax25)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg7 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_narea)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg8 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_nmass)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg9 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_leafCN)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg10 <- df_trobit_sitemean %>%  -->
-<!--   ggplot(aes(CNrt, log_lma)) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(color = "red", method = "lm") + -->
-<!--   theme_classic() -->
-
-<!-- gg6 + gg7 + gg8 + gg9 + gg10 -->
-
-<!-- summary(lm(log_Vcmax25~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_narea~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_nmass~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_leafCN~CNrt,data=df_trobit_sitemean)) -->
-<!-- summary(lm(log_lma~CNrt,data=df_trobit_sitemean)) -->
-<!-- ``` -->
-
-<!-- **Findings:** -->
-
-<!-- - No response in Vcmax25 and Narea -->
-<!-- - Clear response in Narea, leaf C:N, and LMA to soil C:N -->
-<!-- - For WORLDCLIM soil C/N, it is non-significant to any leaf traits. -->
-
-### Multivariate analysis
-
-TO BE DONE USING WORLDCLIM DATA, INGESTED USING INGESTR -> YUNKE
-
-```{r eval=FALSE}
-library(ingestr)
-
-filn <- "~/data/leaf_traits/leaf_soil_WORLDCLIM.csv"
+kfFEC <- 2.04
+ 
 if (!file.exists(filn)){
   
-  settings_worldclim <- list(varnam = c("tavg"))  # please add variables here
-  
-  df_worldclim <- ingest(
-    df_trobit_sitemean,
+  ## Collect climatic variables from WorldClim----------------------------------  
+  df_sites <- df_trobit_sitemean %>% 
+    select(sitename, lon, lat, elv = z) %>% 
+    distinct() |> 
+    
+    ## at least one sitename is missing!
+    drop_na(sitename)
+
+  settings_wc <- list(varnam = c("tmin", "tmax", "vapr", "srad"))
+
+  ## collect WC data for idxs sites
+  df_wc <- ingest(
+    df_sites,
     source    = "worldclim",
-    settings  = settings_worldclim,
-    dir       = "~/data/worldclim"
-    ) %>% 
-    unnest(data)
-  
-  df <- df %>% 
-    left_join(
-      df_trobit_sitemean %>% 
-        rename(site_id = sitename),
-      by = "site_id"
+    settings  = settings_wc,
+    dir       = "~/data/worldclim/"
     )
   
-  write_csv(df, file = filn)  
+  ## get growting-season means
+  df_wc <- df_wc |> 
+  
+    unnest(data) |> 
+  
+    ## add latitude
+    left_join(df_sites, by = "sitename") |> 
+    
+    ## vapour pressure kPa -> Pa
+    mutate(vapr = vapr * 1e3) |>
+    
+    ## PPFD from solar radiation: kJ m-2 day-1 -> mol m−2 s−1 PAR
+    mutate(ppfd = 1e3 * srad * kfFEC * 1.0e-6 / (60 * 60 * 24)) |>
+  
+    ## calculate VPD (Pa) based on tmin and tmax
+    rowwise() |> 
+    mutate(vpd = ingestr::calc_vpd(eact = vapr, tmin = tmin, tmax = tmax)) |> 
+    
+    ## calculate growth temperature (average daytime temperature)
+    mutate(doy = lubridate::yday(lubridate::ymd("2001-01-15") + months(month - 1))) |> 
+    mutate(tgrowth = ingestr::calc_tgrowth(tmin, tmax, lat, doy)) |> 
+    
+    ## average over growing season (where Tgrowth > 0 deg C)
+    group_by(sitename) |> 
+    nest() |> 
+    mutate(data_growingseason = purrr::map(data, ~get_growingseasonmean(.))) |> 
+    unnest(data_growingseason) |> 
+    select(-data)  
+  
+  ## Collect N deposition-------------------------------------------------------  
+  df_ndep <- ingest(
+                    df_sites |> 
+                      mutate(year_start = 1990, year_end = 2009),
+                    source    = "ndep",
+                    timescale = "y",
+                    dir       = "~/data/ndep_lamarque/",
+                    verbose   = FALSE
+                    ) |> 
+    unnest(cols = data) |> 
+    group_by(sitename) |> 
+    summarise(noy = mean(noy), nhx = mean(nhx)) |> 
+    mutate(ndep = noy + nhx) |> 
+    select(-noy, -nhx)
+  
+  ## Combine data---------------------------------------------------------------
+  df_trobit_sitemean <- df_trobit_sitemean %>% 
+    left_join(
+      df_wc,
+      by = "sitename"
+    ) |> 
+    left_join(
+      df_ndep,
+      by = "sitename"
+    )
+  
+  write_csv(df_trobit_sitemean, file = filn)  
+  
 } else {
-  df <- read_csv(filn)
+  df_trobit_sitemean <- read_csv(filn)
 }
 ```
 
-The code below shows how this was done for Ning's data. Please do the same here with multiple WorldClim climatic variables. XXX YUNKE.
 
-<!-- ```{r} -->
-<!-- # removed: mgdd0 (don't know what it is) -->
-<!-- linmod_vcmax <- lm(log_vcmax25_obs ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-<!-- linmod_narea <- lm(log_Narea ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-<!-- linmod_nmass <- lm(log_Nmass ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
-<!-- linmod_lma   <- lm(log_LMA ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv,  -->
-<!--                    data = df_trobit_sitemean -->
-<!--                    ) -->
+### Multivariate analysis
 
-<!-- library(visreg) -->
-<!-- gg_vcmax <- visreg(linmod_vcmax, "CNrt", gg = TRUE) -->
-<!-- gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE) -->
-<!-- gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE) -->
-<!-- gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE) -->
+Missing: alpha
+```{r}
+df_trobit_sitemean <- df_trobit_sitemean |> 
+  mutate(log_vpd = log(vpd),
+         log_ndep = log(ndep))
 
-<!-- gg_vcmax <- gg_vcmax + -->
-<!--   theme_classic() -->
-<!-- gg_narea <- gg_narea + -->
-<!--   theme_classic() -->
-<!-- gg_nmass <- gg_nmass + -->
-<!--   theme_classic() -->
-<!-- gg_lma <- gg_lma + -->
-<!--   theme_classic() -->
+# removed: mgdd0 (don't know what it is)
+linmod_vcmax <- lm(log_Vcmax25 ~     log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
+                   data = df_trobit_sitemean)
+linmod_narea <- lm(log_narea ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
+                   data = df_trobit_sitemean)
+linmod_nmass <- lm(log_nmass ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
+                   data = df_trobit_sitemean)
+linmod_lma   <- lm(log_lma ~         log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
+                   data = df_trobit_sitemean)
+linmod_cn   <- lm(log_leafCN ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
+                   data = df_trobit_sitemean)
+```
 
-<!-- (gg_vcmax + gg_narea) / -->
-<!--   (gg_nmass + gg_lma) -->
-<!-- ``` -->
+Partial relationship analysis with soil C:N.
+```{r}
+gg_vcmax <- visreg(linmod_vcmax, "CN", gg = TRUE)
+gg_narea <- visreg(linmod_narea, "CN", gg = TRUE)
+gg_nmass <- visreg(linmod_nmass, "CN", gg = TRUE)
+gg_lma   <- visreg(linmod_lma,   "CN", gg = TRUE)
+gg_cn   <- visreg(linmod_cn,     "CN", gg = TRUE)
 
+gg_vcmax <- gg_vcmax +
+  theme_classic()
+gg_narea <- gg_narea +
+  theme_classic()
+gg_nmass <- gg_nmass +
+  theme_classic()
+gg_lma <- gg_lma +
+  theme_classic()
+gg_cn <- gg_cn +
+  theme_classic()
 
-<!-- ```{r} -->
-<!-- # larger_size <- theme(axis.text=element_text(size=20),axis.title=element_text(size=20), -->
-<!-- #                      plot.subtitle=element_text(size=15)) -->
+(gg_vcmax + gg_narea) /
+  (gg_nmass + gg_lma) / 
+  (gg_cn + gg_cn)
+```
 
-<!-- a1 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") -->
+Partial relationship analysis with N deposition.
+```{r}
+gg_vcmax <- visreg(linmod_vcmax, "log_ndep", gg = TRUE)
+gg_narea <- visreg(linmod_narea, "log_ndep", gg = TRUE)
+gg_nmass <- visreg(linmod_nmass, "log_ndep", gg = TRUE)
+gg_lma   <- visreg(linmod_lma,   "log_ndep", gg = TRUE)
+gg_cn   <- visreg(linmod_cn,     "log_ndep", gg = TRUE)
 
-<!-- a2 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
+gg_vcmax <- gg_vcmax +
+  theme_classic()
+gg_narea <- gg_narea +
+  theme_classic()
+gg_nmass <- gg_nmass +
+  theme_classic()
+gg_lma <- gg_lma +
+  theme_classic()
+gg_cn <- gg_cn +
+  theme_classic()
 
-<!-- a3 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- a4 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- a5 <- analyse_modobs2(df_trobit_sitemean, "CN", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "Soil C/N") -->
-
-<!-- c1 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_narea", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- c2 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_nmass", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed") -->
-
-<!-- c3 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_leafCN", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2, se=FALSE, linetype = "dashed") -->
-
-<!-- c4 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_LMA", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- c5 <- analyse_modobs2(df_trobit_sitemean, "pH", "log_Vcmax25", type = "points", shortsubtitle = TRUE, rsquared = FALSE)$gg + -->
-<!--   labs(x = "pH") + -->
-<!--   geom_smooth(method = "lm", color = "red", size = 2) -->
-
-<!-- cowplot::plot_grid(a1, a2, a3, a4, a5,  -->
-<!--           c1, c2, c3, c4, c5,  -->
-<!--           nrow = 2) -->
-
-<!-- ggsave("fig/soilN_P.pdf", sep = ""), width = 12, height = 8) -->
-<!-- ``` -->
+(gg_vcmax + gg_narea) /
+  (gg_nmass + gg_lma) / 
+  (gg_cn + gg_cn)
+```
