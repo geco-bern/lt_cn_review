@@ -22,7 +22,9 @@ library(skimr)
 Outputs are generated with `rsofun/analysis/example_cnmodel_ch_oe1.R`. Copy them to `./data/`. This is for a simulation for FLUXNET site CH-Oe1, a grassland. 
 
 ```{r}
+system("cp ~/rsofun/tmp/output_cnmodel_ch_oe1.R ../data/")
 df_rsofun <- readRDS("../data/output_cnmodel_ch_oe1.R")
+# df_rsofun <- read_csv("../data/output_cnmodel_co2.csv")
 
 df_rsofun_agg <- df_rsofun |> 
   summarise(across(where(is.numeric), mean))
@@ -39,7 +41,7 @@ doydf_rsofun <- df_rsofun |>
   as_tibble() |> 
   mutate(doy = lubridate::yday(date)) |> 
   group_by(doy) |> 
-  summarise(gpp = mean(gpp))
+  summarise(gpp = mean(gpp), fapar = mean(fapar))
 ```
 
 
@@ -161,6 +163,55 @@ Plot distribution of root mass fractions in temperate, not water-limited grassla
 
 - Plot mean seasonal cycle of observations and modelled fAPAR of different grassland (FLUXNET2015) sites separately.
 
+```{r}
+filn <- "../data/ddf_modis_CH-Oe1.rds"
+if (!file.exists(filn)){
+  
+  settings_modis <- get_settings_modis(
+    bundle            = "modis_fpar",
+    data_path         = tempdir(),
+    method_interpol   = "loess",
+    network           = "fluxnet",
+    keep              = TRUE,
+    overwrite_raw     = FALSE,
+    overwrite_interpol= TRUE,
+    n_focal           = 0
+    )
+  
+  df_modis_fpar <- ingest(
+    siteinfo_fluxnet2015 |> filter(sitename == "CH-Oe1"),
+    source = "modis",
+    settings = settings_modis,
+    parallel = FALSE,
+    ncores = 1
+    )
+  
+  df_modis_fpar <- df_modis_fpar |> 
+    unnest(data) |> 
+    rename(fapar = modisvar_filled)
+
+  write_rds(df_modis_fpar, file = filn)
+  
+} else {
+  
+  df_modis_fpar <- readRDS(filn)
+  
+}
+
+doydf_modis <- df_modis_fpar |> 
+  unnest(data) |> 
+  mutate(doy = lubridate::yday(date)) |> 
+  group_by(doy) |> 
+  summarise(fapar = mean(fapar, na.rm = TRUE))
+```   
+
+```{r}
+ggplot() +
+  geom_line(data = doydf_modis,  aes(doy, fapar), color = "#777055ff") +
+  geom_line(data = doydf_rsofun, aes(doy, fapar), color = "#29a274ff") +
+  theme_classic()
+```
+
 ## Fluxes
 
 ### GPP
@@ -168,21 +219,27 @@ Plot distribution of root mass fractions in temperate, not water-limited grassla
 Plot mean seasonal cycle of observations and modelled GPP and NEE of different grassland (FLUXNET2015) sites separately.
     
 ```{r}
-settings_fluxnet <- list(
-  getswc       = FALSE,
-  filter_ntdt  = FALSE,
-  threshold_GPP= 0.8,
-  remove_neg   = FALSE
-  )
-
-ddf_fluxnet <- ingest(
-  siteinfo = siteinfo_fluxnet2015 |> filter(sitename == "CH-Oe1"),
-  source   = "fluxnet",
-  getvars  = list(gpp = "GPP_NT_VUT_REF"),
-  dir      = "~/data/FLUXNET-2015_Tier1/20191024/DD/", # adjust this with your local path
-  settings = settings_fluxnet,
-  timescale= "d"
-  )
+filn <- "../data/ddf_fluxnet_CH-Oe1.rds"
+if (!file.exists(filn)){
+  settings_fluxnet <- list(
+    getswc       = FALSE,
+    filter_ntdt  = FALSE,
+    threshold_GPP= 0.8,
+    remove_neg   = FALSE
+    )
+  
+  ddf_fluxnet <- ingest(
+    siteinfo = siteinfo_fluxnet2015 |> filter(sitename == "CH-Oe1"),
+    source   = "fluxnet",
+    getvars  = list(gpp = "GPP_NT_VUT_REF"),
+    dir      = "~/data/FLUXNET-2015_Tier1/20191024/DD/", # adjust this with your local path
+    settings = settings_fluxnet,
+    timescale= "d"
+    )
+  write_rds(ddf_fluxnet, file = filn)
+} else {
+  ddf_fluxnet <- readRDS(filn)
+}
 
 doydf_fluxnet <- ddf_fluxnet |> 
   unnest(data) |> 

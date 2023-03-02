@@ -34,9 +34,9 @@ Load CO2 meta-analysis results from MESI (produced with `analysis_mesi.Rmd`).
 df_box_co2 <- read_rds("../data/df_box_mesi_co2.rds")
 ```
 
-Add model outputs to this data frame. This is produced with `rsofun/analysis/example_cnmodel.R`.
+Add model outputs to this data frame. This is produced with `analysis/exp_co2_cnmodel.R`.
 ```{r}
-df_cnmodel_co2 <- read_csv("../data/output_cnmodel_co2.csv")
+df_cnmodel_co2 <- read_csv(paste0(here::here(), "/data/output_cnmodel_co2.csv"))
 
 ## aggregate before and after
 years_before <- 2007:2009
@@ -59,19 +59,30 @@ df_cnmodel_co2_after <- df_cnmodel_co2 |>
   summarise(across(where(is.numeric), mean))
 
 df_cnmodel_co2_logresponse <- log(df_cnmodel_co2_after / df_cnmodel_co2_before) |> 
-  mutate(agb = cleaf) |> 
+  mutate(agb = cleaf,
+         anpp = npp_leaf,
+         root_production = npp_root) |> 
   rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
          n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
   pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
 ```
 
-
 Visualisation
 ```{r}
+var_order <- c("asat", "gpp", "vcmax", "jmax", "gs", 
+               "leaf_n_area", "leaf_n_mass", 
+               "leaf_cn", "lai", "leaf_area", 
+               "leaf_biomass", "anpp", "agb", 
+               "root_production",
+               "root_shoot_ratio", "n_uptake", 
+               "n_inorg" 
+               )
 df_box_co2 |> 
+  
   left_join(df_cnmodel_co2_logresponse, by = "var") |> 
+  
   ## give it a nice order (for plotting)
-  mutate(var = factor(var, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n_area", "leaf_n_mass", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
+  mutate(var = factor(var, levels = rev(var_order))) |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -92,9 +103,9 @@ Load CO2 meta-analysis results from MESI (produced with `analysis_mesi.Rmd`).
 df_box_nfert <- read_rds("../data/df_box_mesi_nfert.rds")
 ```
 
-Add model outputs to this data frame. This is produced with `rsofun/analysis/example_cnmodel.R`.
+Add model outputs to this data frame. This is produced with `analysis/exp_nfert_cnmodel.R`.
 ```{r}
-df_cnmodel_nfert <- read_csv("../data/output_cnmodel_nfert.csv")
+df_cnmodel_nfert <- read_csv(paste0(here::here(), "/data/output_cnmodel_nfert.csv"))
 
 ## aggregate before and after
 years_before <- 2007:2009
@@ -117,7 +128,9 @@ df_cnmodel_nfert_after <- df_cnmodel_nfert |>
   summarise(across(where(is.numeric), mean))
 
 df_cnmodel_nfert_logresponse <- log(df_cnmodel_nfert_after / df_cnmodel_nfert_before) |> 
-  mutate(agb = cleaf) |> 
+  mutate(agb = cleaf,
+         anpp = npp_leaf,
+         root_production = npp_root) |> 
   rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
          n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
   pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
@@ -126,10 +139,13 @@ df_cnmodel_nfert_logresponse <- log(df_cnmodel_nfert_after / df_cnmodel_nfert_be
 
 Visualisation
 ```{r}
+var_order <- c("anpp", "root_production", "root_shoot_ratio", "n_uptake", "n_inorg")
+
 df_box_nfert |> 
   left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
   ## give it a nice order (for plotting)
-  mutate(var = factor(var, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
+  filter(var %in% var_order) |> 
+  mutate(var = factor(var, levels = rev(var_order))) |>  
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -140,5 +156,5 @@ df_box_nfert |>
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
   # ylim(-1, 1) +
-  labs(title = "MESI data", subtitle = "Response to eCO2")
+  labs(title = "MESI data", subtitle = "Response to N-fertilization")
 ```

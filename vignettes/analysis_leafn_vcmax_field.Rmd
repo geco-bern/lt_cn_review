@@ -210,7 +210,7 @@ gg1 + gg2 + gg3 + gg4
 
 ### Complement climate variables
 
-Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://computationales.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
+Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://geco-bern.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
 
 - growth temperature
 - growing season mean VPD
@@ -503,6 +503,29 @@ out$gg +
   xlim(0, 18) + ylim(0, 18)
 ```
 
+### Modelled and observed partial relationships
+
+Fit multivariate models.
+```{r}
+# removed: mgdd0 (don't know what it is)
+linmod_vcmax_obs <- lm(log_vcmax25_obs   ~ log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+linmod_vcmax_mod <- lm(vcmax25_predicted ~ log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+```
+
+Partial relationship analysis with soil C:N.
+```{r}
+gg_vcmax_obs <- visreg(linmod_vcmax_obs, "log_vpd", gg = TRUE)
+gg_vcmax_mod <- visreg(linmod_vcmax_mod, "log_vpd", gg = TRUE)
+
+gg_vcmax_obs <- gg_vcmax_obs +
+  theme_classic()
+gg_vcmax_mod <- gg_vcmax_mod +
+  theme_classic()
+
+(gg_vcmax_obs + gg_vcmax_mod)
+```
+
+
 ## Ellsworth data
 
 TO EXPLORE. BUT LOW PRIORITY.
@@ -623,7 +646,7 @@ gg1 + gg2 + gg3 + gg4 + gg5
 
 ### Complement climate variables
 
-Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://computationales.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
+Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://geco-bern.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
 
 - growth temperature
 - growing season mean VPD
