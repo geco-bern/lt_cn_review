@@ -82,18 +82,20 @@ df_box_co2 |>
   left_join(df_cnmodel_co2_logresponse, by = "var") |> 
   
   ## give it a nice order (for plotting)
+  filter(var %in% var_order) |> 
   mutate(var = factor(var, levels = rev(var_order))) |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+                 fill = "#777055ff", color = "black", alpha = 0.6, width = 0.5 
                  ) +
-  geom_point(aes(x = var, y = logrr_cnmodel), size = 3, color = "royalblue" ) +
-  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
   # ylim(-1, 1) +
-  labs(title = "MESI data", subtitle = "Response to eCO2")
+  labs(title = "MESI data", subtitle = expression(paste("Response to eCO"[2]))) +
+  theme_classic()
 ```
 
 ## N-fertilisation experiments
@@ -143,18 +145,31 @@ var_order <- c("anpp", "root_production", "root_shoot_ratio", "n_uptake", "n_ino
 
 df_box_nfert |> 
   left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
+  
   ## give it a nice order (for plotting)
   filter(var %in% var_order) |> 
   mutate(var = factor(var, levels = rev(var_order))) |>  
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+                 fill = "#777055ff", color = "black", alpha = 0.6, width = 0.5 
                  ) +
-  geom_point(aes(x = var, y = logrr_cnmodel), size = 3, color = "royalblue" ) +
-  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
   labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
   coord_flip() +
   # ylim(-1, 1) +
-  labs(title = "MESI data", subtitle = "Response to N-fertilization")
+  labs(title = "MESI data", subtitle = "Response to N-fertilization") +
+  theme_classic()  
+  
+  # ggplot() +
+  # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+  #                fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+  #                ) +
+  # geom_point(aes(x = var, y = logrr_cnmodel), size = 3, color = "royalblue" ) +
+  # geom_hline( yintercept = 0.0, size = 0.5 ) +
+  # labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  # coord_flip() +
+  # # ylim(-1, 1) +
+  # labs(title = "MESI data", subtitle = "Response to N-fertilization")
 ```
