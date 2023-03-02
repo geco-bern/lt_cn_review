@@ -71,7 +71,7 @@ Visualisation
 ```{r}
 var_order <- c("asat", "gpp", "vcmax", "jmax", "gs", 
                "leaf_n_area", "leaf_n_mass", 
-               "leaf_cn", "lai", "leaf_area", 
+               "leaf_cn", "lai", 
                "leaf_biomass", "anpp", "agb", 
                "root_production",
                "root_shoot_ratio", "n_uptake", 
@@ -87,7 +87,7 @@ df_box_co2 |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "#777055ff", color = "black", alpha = 0.6, width = 0.5 
+                 fill = "#777055ff", color = "black", alpha = .5, width = 0.5 
                  ) +
   geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
