@@ -449,9 +449,11 @@ df4_agb_bnpp %>%
 - SwissFACE Lolium: I seem to remember that there was a stronger stimulation of belowground than aboveground biomass. Why does this here suggest a much higher response in AGB than in BGB? In the SwissFACE experiment, ABG was determined from multiple cuts per year. Within each year, harvested (cut) biomass should be summed up, not averaged! Please check and correct: where sums are relevant, take sum over multiple samplings per year. (-> KEVIN, STUDENT)
 
 
-
-
 # N fertilisation experiments
+
+XXXXXXXXXX
+This is now done in `vignettes/Nfert_merge_MESI_NutNet_eperkowski.Rmd`, combining NutNet and MESI data for N-fertilisation.
+XXXXXXXXXX
 
 Select experiments from which we will use data.
 ```{r warning=FALSE}

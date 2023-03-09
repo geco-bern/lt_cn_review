@@ -69,7 +69,7 @@ df_cnmodel_co2_logresponse <- log(df_cnmodel_co2_after / df_cnmodel_co2_before) 
 
 Visualisation
 ```{r}
-var_order <- c("asat", "gpp", "vcmax", "jmax", "gs", 
+var_order <- c("asat", "gpp", "vcmax", "jmax", # "gs", 
                "leaf_n_area", "leaf_n_mass", 
                "leaf_cn", "lai", 
                "leaf_biomass", "anpp", "agb", 
@@ -96,6 +96,8 @@ df_box_co2 |>
   # ylim(-1, 1) +
   labs(title = "MESI data", subtitle = expression(paste("Response to eCO"[2]))) +
   theme_classic()
+
+ggsave("../fig/mesi_cnmodel_co2.pdf")
 ```
 
 ## N-fertilisation experiments
@@ -172,4 +174,6 @@ df_box_nfert |>
   # coord_flip() +
   # # ylim(-1, 1) +
   # labs(title = "MESI data", subtitle = "Response to N-fertilization")
+
+ggsave("../fig/mesi_cnmodel_nfert.pdf")
 ```

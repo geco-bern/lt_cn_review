@@ -1,0 +1,509 @@
+---
+title: "Merge NutNet data into MESI"
+author: "Evan Perkowski"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages and data
+
+```{r, warning = FALSE, message=FALSE}
+## Libraries
+library(dplyr)       # for working with ease
+library(tidyr)       # for working with ease
+library(stringr)
+library(ggplot2)
+library(readr)
+library(metafor)     # for meta analysis
+library(MAd)         # for meta analysis
+
+## MESI data
+df_mesi <- read_csv("~/mesi-db_test/data/mesi_main.csv")
+
+## NutNet data from Cleland et al. (2019). Calculate aboveground biomass from root biomass and root mass fraction, then calculate root:shoot ratio
+df_nutnet <- read_csv(paste0(here::here(), "/data/Cleland_2019_data.csv")) %>%
+  rename(bgb = Rootsgperm2, rmf = rootmassfraction) %>%
+  mutate(agb = (bgb/rmf) - bgb,
+         root_shoot_ratio = bgb / agb)
+```
+
+# Cleland et al. (2019)
+
+Clean data and calculate log RR for root mass fraction, belowground biomass, aboveground biomass, and root:shoot ratio for each site in a single step
+
+```{r, message=FALSE}
+df_nutnet.summary <- df_nutnet %>%
+  filter(treatment_name == "N" | treatment_name == "Control") %>%
+  group_by(site_code, treatment_name) %>%
+  summarize(
+    
+    aridity = mean(Aridity, na.rm = TRUE),
+    light = mean(Light, na.rm = TRUE),
+    
+    x_rmf = mean(rmf, na.rm = TRUE),
+    sd_rmf = sd(rmf, na.rm = TRUE),
+    n_rmf = length(rmf),
+    
+    x_bgb = mean(bgb, na.rm = TRUE),
+    sd_bgb = sd(bgb, na.rm = TRUE),
+    n_bgb = length(bgb),
+    
+    x_agb = mean(agb, na.rm = TRUE),
+    sd_agb = sd(agb, na.rm = TRUE),
+    n_agb = length(agb),
+            
+    x_rootshoot = mean(root_shoot_ratio, na.rm = TRUE),
+    sd_rootshoot = sd(root_shoot_ratio, na.rm = TRUE),
+    n_rootshoot = length(root_shoot_ratio)
+    
+    ) %>%
+  
+  pivot_wider(names_from = treatment_name, values_from = x_rmf:n_rootshoot) %>%
+  rename(
+    
+    x_c_rmf = x_rmf_Control, x_t_rmf = x_rmf_N,
+    sd_c_rmf = sd_rmf_Control, sd_t_rmf = sd_rmf_N,
+    rep_c_rmf = n_rmf_Control, rep_t_rmf = n_rmf_N,
+    
+    x_c_bgb = x_bgb_Control, x_t_bgb = x_bgb_N,
+    sd_c_bgb = sd_bgb_Control, sd_t_bgb = sd_bgb_N,
+    rep_c_bgb = n_bgb_Control, rep_t_bgb = n_bgb_N,
+         
+    x_c_agb = x_agb_Control, x_t_agb = x_agb_N,
+    sd_c_agb = sd_agb_Control, sd_t_agb = sd_agb_N,
+    rep_c_agb = n_agb_Control, rep_t_agb = n_agb_N,   
+         
+    x_c_rootshoot = x_rootshoot_Control, x_t_rootshoot = x_rootshoot_N,
+    sd_c_rootshoot = sd_rootshoot_Control, sd_t_rootshoot = sd_rootshoot_N,
+    rep_c_rootshoot = n_rootshoot_Control, rep_t_rootshoot = n_rootshoot_N
+    )
+```
+
+Equivalent?
+```{r}
+df_nutnet_0 <- df_nutnet |> 
+  
+  ## N-fertilization-only manipulation
+  filter(treatment_name == "N" | treatment_name == "Control")
+```
+
+```{r}
+df_nutnet_2 <- df_nutnet_0 |> 
+  
+  # make long to conform with MESI
+  pivot_longer(cols = c(bgb, rmf, agb, root_shoot_ratio), 
+               names_to = "myvar",
+               values_to = "x"
+               ) |> 
+  
+  # aggregate across experiments, treatments, and years
+  group_by(site_code, treatment_name, myvar) |> 
+  summarise(x_mean = mean(x, na.rm = TRUE),
+            x_sd = sd(x, na.rm = TRUE),
+            rep = n(),
+            .groups = 'drop') |> 
+  
+  # require at least three repetitions - XXX this is different from Evan's implementation
+  filter(rep > 2) |> 
+  
+  # subset
+  select(site_code, myvar, treatment_name, x_mean, x_sd, rep) |> 
+
+  # make wide by treatment
+  pivot_wider(names_from = treatment_name, values_from = c(x_mean, x_sd, rep)) |> 
+  drop_na()
+```
+
+
+Calculate ROM for RMF data:
+
+```{r, message=FALSE}
+df_nutnet.rmf <- df_nutnet.summary[1:9] %>%
+  rename(x_c = x_c_rmf,
+         x_t = x_t_rmf,
+         sd_c = sd_c_rmf,
+         sd_t = sd_t_rmf,
+         rep_c = rep_c_rmf,
+         rep_t = rep_t_rmf) %>%
+  metafor::escalc(measure = "ROM", 
+                  m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+                  m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+                  data = ., 
+                  append = TRUE, 
+                  var.names = c("logr", "logr_var")) %>%
+  mutate(logr_se = sqrt(logr_var) / sqrt(rep_t),
+         myvar = "rmf")
+```
+
+
+Calculate ROM for belowground biomass:
+
+```{r, message=FALSE}
+df_nutnet.bgb <- df_nutnet.summary[, c(1:3, 10:15)] %>%
+  rename(x_c = x_c_bgb, x_t = x_t_bgb,
+         sd_c = sd_c_bgb, sd_t = sd_t_bgb,
+         rep_c = rep_c_bgb, rep_t = rep_t_bgb) %>%
+  metafor::escalc( 
+    measure = "ROM", 
+    m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+    m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+    data = ., 
+    append = TRUE, 
+    var.names = c("logr", "logr_var")) %>%
+  mutate(logr_se = sqrt(logr_var) / sqrt(rep_t),
+         myvar = "bgb")
+```
+
+
+Calculate ROM for aboveground biomass data:
+
+```{r, message=FALSE}
+df_nutnet.agb <- df_nutnet.summary[c(1:3, 16:21)] %>%
+  rename(x_c = x_c_agb,
+         x_t = x_t_agb,
+         sd_c = sd_c_agb,
+         sd_t = sd_t_agb,
+         rep_c = rep_c_agb,
+         rep_t = rep_t_agb) %>%
+  metafor::escalc(measure = "ROM", 
+                  m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+                  m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+                  data = ., 
+                  append = TRUE, 
+                  var.names = c("logr", "logr_var")) %>%
+  mutate(logr_se = sqrt(logr_var) / sqrt(rep_t),
+         myvar = "agb")
+```
+
+
+Calculate ROM for root:shoot ratio data:
+
+```{r, message=FALSE}
+df_nutnet.rootshoot <- df_nutnet.summary[c(1:3, 22:27)] %>%
+  rename(x_c = x_c_rootshoot,
+         x_t = x_t_rootshoot,
+         sd_c = sd_c_rootshoot,
+         sd_t = sd_t_rootshoot,
+         rep_c = rep_c_rootshoot,
+         rep_t = rep_t_rootshoot) %>%
+  metafor::escalc(measure = "ROM", 
+                  m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+                  m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+                  data = ., 
+                  append = TRUE, 
+                  var.names = c("logr", "logr_var")) %>%
+  mutate(logr_se = sqrt(logr_var) / sqrt(rep_t),
+         myvar = "root_shoot_ratio")
+```
+
+Equivalent? `df_nutnet_3` should be equivalent to `nutnet.total`.
+```{r}
+df_nutnet_3 <- df_nutnet_2 %>%
+  
+  ## Get logarithm of response ratio and its variance
+  metafor::escalc( 
+    measure = "ROM", 
+    m1i = x_mean_N,       sd1i = x_sd_N,       n1i = rep_N, 
+    m2i = x_mean_Control, sd2i = x_sd_Control, n2i = rep_Control, 
+    data = ., 
+    append = TRUE, 
+    var.names = c("logr", "logr_var") 
+    ) %>% 
+  
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  ## get standard error
+  mutate( logr_se = sqrt(logr_var) / sqrt(rep_N) ) |> 
+  
+  # make conform
+  select(exp = site_code,
+         myvar,
+         logr,
+         logr_var,
+         logr_se,
+         n_c = rep_Control,
+         n_t = rep_N) |> 
+  mutate(exp = str_c("nutnet_", exp),
+         treatment = "f")
+```
+
+
+Merge lnRR data for all belowground traits, format for easy merge into MESI dataset
+```{r, message=FALSE}
+nutnet.total <- df_nutnet.bgb %>% 
+  full_join(df_nutnet.rmf) %>%
+  full_join(df_nutnet.agb) %>% 
+  full_join(df_nutnet.rootshoot) %>%
+  dplyr::select(exp = site_code, 
+                myvar, 
+                logr, 
+                logr_var, 
+                logr_se,
+                n_c = rep_c, 
+                n_t = rep_t) %>%
+  mutate(exp = str_c("nutnet_", exp),
+         treatment = "f")
+```
+
+## Test
+
+Are Evan's and mine identical? Yes!
+```{r}
+df_nutnet_3 |> 
+  select(exp, myvar, logr_mine = logr) |> 
+  left_join(
+    nutnet.total |> 
+      select(exp, myvar, logr_evan = logr),
+    by = c("exp", "myvar")
+  ) |> 
+  mutate(diff = logr_mine - logr_evan) |>
+  pull(diff)
+```
+
+
+# MESI
+
+Follows exact approach from Beni's analysis from Rpubs. Link: https://rpubs.com/stineb/analysis_mesi
+
+## Data subsetting
+
+```{r, message=FALSE}
+df0 <- df_mesi %>%
+  
+  ## fertilisation experiments only
+  filter(treatment == "f") %>% 
+  
+  ## only experiments conducted in the field
+  filter(experiment_type == "field")
+
+## Data subsetting
+use_exp <- df0 %>% 
+  filter(!is.na(sampling_year)) %>% 
+  group_by(exp) %>% 
+  summarise(nyears = max(sampling_year)) %>% 
+  filter(nyears >= 3) %>% 
+  pull(exp)
+
+# df1 <- df0 %>%
+#   filter(exp %in% use_exp)
+
+## do not subset to minimum experiment length
+df1 <- df0
+```
+
+## Select variables
+
+```{r, warning=FALSE}
+use_response <- c("anpp", "agb", "bgb", "fine_root_biomass", "root_production", "fine_root_production", "root_shoot_ratio", "soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3", "root_n_uptake", "root_nh4_uptake", "root_no3_uptake")
+
+df2 <- df1 %>% 
+  filter(response %in% use_response) %>% 
+  mutate(myvar = response) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("agb", "agb_coarse"),   "agb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass", "coarse_root_c_stock", "bgb_coarse"), "bgb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass"), "bgb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production", "coarse_root_production"),
+                        "root_production", 
+                        myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", "root_nh4_uptake", "root_no3_uptake"),
+                        "n_uptake", 
+                        myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3"), 
+                        "n_inorg", 
+                        myvar))
+
+use_vars <- unique(df2$myvar)
+```
+
+## Analysis
+
+Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
+
+```{r, warning=FALSE}
+df3 <- df2 %>%
+  
+  ## keep only essential variables and drop rows containing missing values for essential variables
+  select(id, exp, myvar, treatment,sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  
+  ## Get logarithm of response ratio and its variance
+  metafor::escalc( 
+    measure = "ROM", 
+    m1i = x_t, sd1i = sd_t, n1i = rep_t, 
+    m2i = x_c, sd2i = sd_c, n2i = rep_c, 
+    data = ., 
+    append = TRUE, 
+    var.names = c("logr", "logr_var") 
+  ) %>% 
+  
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  ## get standard error
+  mutate( logr_se = sqrt(logr_var) / sqrt(rep_t) )
+```
+
+
+```{r}
+# Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
+df4 <- df3 %>% 
+  
+  filter(!is.na(logr_var) & !is.na(logr)) %>% 
+  
+  # re-create ID (common ID per experiment and response variable)
+  select(-id) %>%
+  mutate( id = paste(exp, myvar, sep = "_XXX_")) %>% 
+  
+  MAd::agg( 
+    id = id, 
+    es = logr, 
+    var = logr_var,
+    cor = 1.0, 
+    method = "BHHR", 
+    data = . 
+  ) %>% 
+  
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  # separate ID again for ease of data use
+  mutate( id = str_split(id, "_XXX_") ) %>%
+  mutate( exp = purrr::map_chr(id, 1),
+          myvar = purrr::map_chr(id, 2) ) %>%
+  
+  ## rename again
+  select(exp, myvar, logr = es, logr_var = var) %>%
+  
+  ## add number of observations (sum of plots and repeated samplings)
+  left_join(
+    df3 %>%
+      group_by(exp, myvar, treatment) %>%
+      summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
+    by = c("exp", "myvar")
+  ) %>% 
+  
+  ## get standard error. Verify if number available observations are identical
+  ## for ambient and elevated. Use N from control here (n_c).
+  mutate( logr_se = sqrt(logr_var) / sqrt(n_c) )
+```
+
+# Combine
+
+```{r}
+df4_combined <- df4 |> 
+  
+  # ## Merge with nutnet dataset
+  # bind_rows(nutnet.total)
+
+  ## should be equivalent:
+  bind_rows(df_nutnet_3)
+```
+
+Add root mass fraction to var list (for plots)
+```{r, warning=FALSE}
+use_vars2 <- c(use_vars, "rmf")
+```
+
+# Meta-analysis
+
+Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
+
+```{r, warning=FALSE, message=FALSE}
+source(paste0(here::here(), "/R/analyse_meta.R"))
+
+out  <- purrr::map(as.list(use_vars2), 
+                   ~analyse_meta(df4_combined %>% 
+                                   rename(var = myvar), nam_target = .))
+names(out) <- use_vars2
+df_box <- purrr::map_dfr(out, "df_box")
+saveRDS(df_box, file = paste0(here::here(), "/data/df_box_mesi_nfert_eperkowski.rds"))
+```
+
+## Final data size
+
+Number of data points (plot-level measurements) per variable:
+
+```{r, message=FALSE}
+df4_combined %>% 
+  group_by(myvar) %>% 
+  summarise(n_plots = sum(n_c, na.rm = TRUE), n_exp = n()) %>% 
+  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  knitr::kable()
+```
+
+Number of data points (plot-level measurements) per experiment:
+```{r, warning=FALSE}
+df4_combined %>% 
+  group_by(exp) %>% 
+  summarise(n_plots = sum(n_c), n_exp = n()) %>% 
+  rename_("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  knitr::kable()
+```
+
+
+## Plots
+
+```{r, warning=FALSE}
+df4_combined %>%
+  
+  drop_na(myvar) %>% 
+  
+  ## give it a nice order (for plotting)
+  mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "rmf", "n_uptake", "n_inorg")))) %>% 
+  ggplot( aes(x = myvar, y = logr)) +
+  geom_jitter(color = rgb(0,0,0,0.5), 
+                aes( size = 1/logr_se ), 
+                position = position_jitter(w = 0.2, h = 0) 
+  ) +
+  geom_crossbar( data = df_box %>% drop_na(var), 
+                 aes(x = var, y = middle, ymin = ymin, ymax = ymax),
+                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 ) +
+  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  scale_y_continuous(limits = c(-2, 2), breaks = seq(-2, 2, 1)) +
+  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  coord_flip() +
+  labs(title = "MESI + NutNet data", subtitle = "Response to N-fertilisation")
+```
+
+## Couplings
+
+Make a wide table with ANPP and BNPP:
+
+```{r, warning=FALSE}
+df4_agb_bnpp <- df4_combined %>% 
+  filter(myvar %in% c("agb", "bgb")) %>% 
+  select(exp, myvar, logr) %>%
+  tidyr::spread( myvar, logr )
+
+## add standard error 
+df4_agb_bnpp <- df4_combined %>% 
+  filter(myvar %in% c("agb", "bgb")) %>% 
+  select(exp, myvar, logr_se) %>%
+  tidyr::spread( myvar, logr_se ) %>% 
+  rename(se_agb = agb, se_bgb = bgb) %>%
+  right_join(df4_agb_bnpp, by = "exp") %>% 
+  mutate(se = se_agb * se_bgb)
+
+df4_agb_bnpp %>% 
+  ggplot(aes(x = agb, y = bgb, label = exp)) +
+  geom_point(aes(size =  1/se), color = "tomato") +
+  xlim(0, 0.6) + ylim(0, 0.6) +
+  geom_abline(linetype = "dotted") + 
+  ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
+  labs(x = "Log RR of AGB", y = "Log RR of BGB", size=expression(paste("Error"^{-1}))) +
+  theme_classic()
+```
+
+
+
+
+
+
+
+
+
+
