@@ -158,6 +158,8 @@ $$
 SD = SE \sqrt{N}
 $$
 
+### Get response ratios
+
 Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
 ```{r}
 df3 <- df2 %>%
@@ -187,9 +189,42 @@ df3 <- df2 %>%
 # tmp3$root_shoot_ratio
 ```
 
+Response ratios of CO2 treatment.
+
+```{r}
+df3_co2 <- df2 |> 
+  
+  ## keep only essential variables and drop rows containing missing values for essential variables
+  select(id, exp, myvar, treatment, sampling_year, c_t, c_c) |> 
+
+  ## Get logarithm of response ratio
+  mutate(logr_co2 = log(c_t / c_c))
+```
+
+Normalise
+```{r}
+df4 <- df3 |> 
+  left_join(
+    df3_co2,
+    by = c("id", "exp", "myvar", "sampling_year")
+  ) |> 
+  
+  # xxx Kevin: some missing information on CO2 concentrations here!
+  drop_na(logr_co2) |> 
+  
+  # xxx Kevin: there are some data points with treatment = "c", where the CO2 concentration in ambient and elevated are identical. I remove them for now, but this should be addressed.
+  filter(logr_co2 > 0.0) |> 
+  
+  mutate(logr = logr / logr_co2, 
+         logr_se = logr_se / logr_co2)
+```
+
+
+### Aggregate by experiment
+
 Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
 ```{r}
-df4 <- df3 %>% 
+df5 <- df4 %>% 
   
   filter(!is.na(logr_var) & !is.na(logr)) %>% 
   
@@ -234,10 +269,12 @@ df4 <- df3 %>%
 # tmp$root_shoot_ratio
 ```
 
+### Meta-analysis
+
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
 source("~/lt_cn_review/R/analyse_meta.R")
-out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4 %>% rename(var = myvar), nam_target = .))
+out  <- purrr::map(as.list(use_vars), ~analyse_meta(df5 %>% rename(var = myvar), nam_target = .))
 names(out) <- use_vars
 df_box <- purrr::map_dfr(out, "df_box")
 saveRDS(df_box, file = "../data/df_box_mesi_co2.rds")
@@ -247,7 +284,7 @@ saveRDS(df_box, file = "../data/df_box_mesi_co2.rds")
 
 Number of data points (plot-level measurements) per variable:
 ```{r}
-df4 %>% 
+df5 %>% 
   group_by(myvar) %>% 
   summarise(n_plots = sum(n_c), n_exp = n()) %>% 
   rename_("Variable"="myvar", "N plots"="n_plots", "N experiments"="n_exp") %>% 
@@ -257,7 +294,7 @@ df4 %>%
 Available experiments for root:shoot ratio
 ```{r}
 ivar <- "root_shoot_ratio"
-df4 %>%
+df5 %>%
   filter(myvar == ivar) %>%
   select(exp, n_c) %>%
   knitr::kable()
@@ -266,7 +303,7 @@ df4 %>%
 Available experiments for inorganic N availability
 ```{r}
 ivar <- "n_inorg"
-df4 %>%
+df5 %>%
   filter(myvar == ivar) %>%
   select(exp, n_c) %>%
   knitr::kable()
@@ -275,7 +312,7 @@ df4 %>%
 Available experiments for N uptake
 ```{r}
 ivar <- "n_uptake"
-df4 %>%
+df5 %>%
   filter(myvar == ivar) %>%
   select(exp, n_c) %>%
   knitr::kable()
@@ -283,23 +320,75 @@ df4 %>%
 
 ## Visualisations
 
+```{r}
+df_labels <- tibble(
+  myvar = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n_area", "leaf_n_mass", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")),
+  mylabl = rev(c(
+    expression(paste(italic("A")[sat])),
+    "GPP",
+    expression(paste(italic("V")[cmax])),
+    expression(paste(italic("J")[max])),
+    expression(paste(italic("g")[s])),
+    expression(paste("Leaf ", italic("N")[area])),
+    expression(paste("Leaf ", italic("N")[mass])),
+    "Leaf C:N",
+    "LAI",
+    "Leaf area",
+    "Leaf mass",
+    "ANPP",
+    "AGB",
+    "Root NPP",
+    "BGB",
+    "Root:shoot",
+    "N uptake",
+    "Inorganic N"
+  ))
+)
+
+df5 <- df5 |> 
+  left_join(
+    df_labels,
+    by = "myvar"
+  )
+
+df_box <- df_box |> 
+  left_join(
+    df_labels |> 
+      rename(var = myvar),
+    by = "var"
+  )
+```
+
+
 Plot dots and my box.
 ```{r}
-df4 %>%
+gg_eco2_mesi <- df5 %>%
   ## give it a nice order (for plotting)
   mutate(myvar = factor(myvar, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n_area", "leaf_n_mass", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) %>% 
   
   ggplot( aes(x = myvar, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.5), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
+  geom_jitter( color = rgb(0,0,0,0.5), aes( size = 1/logr_se ), 
+               position = position_jitter(w = 0.2, h = 0),
+               show.legend = FALSE) +
   geom_crossbar( data = df_box, 
                  aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+                 fill = "tomato", color = "black", 
+                 alpha = 0.6, width = 0.5,
+                 show.legend = FALSE
                  ) +
   geom_hline( yintercept = 0.0, size = 0.5 ) +
-  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
-  coord_flip() +
+  labs(x = "", y = "Normalised log response ratio", size = expression(paste("Error"^{-1}))) +
   # ylim(-1, 1) +
-  labs(title = "MESI data", subtitle = "Response to eCO2")
+  labs(subtitle = "MESI data", title = expression(paste("Response to eCO"[2]))) +
+  scale_x_discrete("", 
+                   labels = df_labels$mylabl) +
+  coord_flip()
+
+saveRDS(gg_eco2_mesi, file = paste0(here::here(), "/data/gg_eco2_mesi.rds"))
+
+gg_eco2_mesi
+ggsave(paste0(here::here(), "/fig/metaanalysis_eco2_mesi.pdf"), width = 8, height = 5)
+ggsave(paste0(here::here(), "/fig/metaanalysis_eco2_mesi.png"), width = 8, height = 5)
 ```
 
 **Findings:**
@@ -314,6 +403,33 @@ df4 %>%
 - Positive response in N uptake, but large variation between experiments.
 - Decline in mineral N availability (but not significant)
 - Strong (in experiment extraordinarily strong) reduction in stomatal conductance (`gs`).
+
+Reduced plot
+```{r}
+use_vars <- c("lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")
+
+df5 |> 
+  ungroup() |> 
+  filter(myvar %in% use_vars) |> 
+  mutate(myvar = factor(myvar, levels = rev(use_vars))) |> 
+  
+  ggplot( aes(x = myvar, y = logr)) +
+  geom_jitter( color = rgb(0,0,0,0.5), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
+  geom_crossbar( data = df_box |> 
+                   filter(var %in% use_vars), 
+                 aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+                 ) +
+  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  coord_flip() +
+  # ylim(-1, 1) +
+  labs(title = "MESI data", subtitle = expression(paste("Response to eCO"[2])))
+
+ggsave(paste0(here::here(), "/fig/logrr_co2_mesi.pdf"), width = 7, height = 5)
+```
+
+
 
 Standard forest plots
 
@@ -347,7 +463,7 @@ df_gcme %>%
   select(exp_nam, my_varnam, n_plots)
 
 ## MESI
-df4 %>% 
+df5 %>% 
   filter(myvar == "n_uptake") %>% 
   select(exp, myvar, n_c)
 ```
@@ -360,7 +476,7 @@ df_gcme %>%
   select(exp_nam, my_varnam, n_plots)
 
 ## MESI
-df4 %>% 
+df5 %>% 
   filter(myvar == "n_uptake") %>% 
   select(exp, myvar, n_c)
 ```
@@ -373,7 +489,7 @@ df_gcme %>%
   select(exp_nam, my_varnam, n_plots)
 
 ## MESI
-df4 %>% 
+df5 %>% 
   filter(myvar == "n_inorg") %>% 
   select(exp, myvar, n_c)
 ```
@@ -392,27 +508,28 @@ Plot effect sizes for two different variables against each other, given that dat
 
 ```{r}
 ## make a wide table with ANPP and BNPP
-df4_anpp_bnpp <- df4 %>% 
+df5_anpp_bnpp <- df5 %>% 
   filter(myvar %in% c("anpp", "root_production")) %>% 
   select(exp, myvar, logr) %>%
   tidyr::spread( myvar, logr )
 
 ## add standard error 
-df4_anpp_bnpp <- df4 %>% 
+df5_anpp_bnpp <- df5 %>% 
   filter(myvar %in% c("anpp", "root_production")) %>% 
   select(exp, myvar, logr_se) %>%
   tidyr::spread( myvar, logr_se ) %>% 
   rename(se_anpp = anpp, se_root_production = root_production) %>%
-  right_join(df4_anpp_bnpp, by = "exp") %>% 
+  right_join(df5_anpp_bnpp, by = "exp") %>% 
   mutate(se = se_anpp * se_root_production)
 
-df4_anpp_bnpp %>% 
-  ggplot(aes(x = anpp, y = root_production, label = exp)) +
+df5_anpp_bnpp %>% 
+  ggplot(aes(x = root_production, y = anpp, label = exp)) +
+  geom_point(size = 3, color = "tomato") +
   geom_point(aes(size =  1/se), color = "tomato") +
-  xlim(0, 0.8) + ylim(0, 0.8) +
+  xlim(0, 2) + ylim(0, 2) +
   geom_abline(linetype = "dotted") + 
   ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(x = "Log RR of ANPP", y = "Log RR of root production", size = expression(paste("Error"^{-1}))) +
+  labs(x = "Log RR of root NPP", y = "Log RR of ANPP", size = expression(paste("Error"^{-1}))) +
   theme_classic()
 ```
 
@@ -420,28 +537,48 @@ df4_anpp_bnpp %>%
 
 ```{r}
 ## make a wide table with ANPP and BNPP
-df4_agb_bnpp <- df4 %>% 
+df5_agb_bnpp <- df5 %>% 
   filter(myvar %in% c("agb", "bgb")) %>% 
   select(exp, myvar, logr) %>%
   tidyr::spread( myvar, logr )
 
 ## add standard error 
-df4_agb_bnpp <- df4 %>% 
+df5_agb_bnpp <- df5 %>% 
   filter(myvar %in% c("agb", "bgb")) %>% 
   select(exp, myvar, logr_se) %>%
   tidyr::spread( myvar, logr_se ) %>% 
-  rename(se_agb = agb, se_bgb = bgb) %>%
-  right_join(df4_agb_bnpp, by = "exp") %>% 
+  rename(se_agb = agb, se_bgb = bgb) |> 
+  right_join(df5_agb_bnpp, by = "exp") %>% 
   mutate(se = se_agb * se_bgb)
 
-df4_agb_bnpp %>% 
-  ggplot(aes(x = agb, y = bgb, label = exp)) +
-  geom_point(aes(size =  1/se), color = "tomato") +
-  xlim(0, 0.6) + ylim(0, 0.6) +
+gg_eco2_cpl_agb_bgb_mesi <- df5_agb_bnpp %>% 
+  ggplot(aes(x = bgb, y = agb, label = exp)) +
+  geom_point(aes(size =  1/se), color = rgb(0,0,0,0.5), show.legend = FALSE) +
+  xlim(0, 1.5) + ylim(0, 1.5) +
   geom_abline(linetype = "dotted") + 
   ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(x = "Log RR of AGB", y = "Log RR of BGB", size=expression(paste("Error"^{-1}))) +
+  labs(title = " ",
+       subtitle = " ",
+       x = "Normalised log RR of belowground biomass", 
+       y = "Normalised log RR of aboveground biomass", 
+       size = expression(paste("Error"^{-1}))) +
   theme_classic()
+
+saveRDS(gg_eco2_mesi, file = paste0(here::here(), "/data/gg_eco2_cpl_agb_bgb_mesi.rds"))
+
+gg_eco2_cpl_agb_bgb_mesi
+ggsave(paste0(here::here(), "/fig/eco2_cpl_agb_bgb_mesi.pdf"), width = 6, height = 5)
+ggsave(paste0(here::here(), "/fig/eco2_cpl_agb_bgb_mesi.png"), width = 6, height = 5)
+```
+
+## Publication figure
+
+```{r}
+library(cowplot)
+
+plot_grid(gg_eco2_mesi, gg_eco2_cpl_agb_bgb_mesi, rel_widths = c(1, 0.65), labels = c("a", "b"))
+ggsave(paste0(here::here(), "/fig/eco2_mesi.pdf"), width = 12, height = 5)
+ggsave(paste0(here::here(), "/fig/eco2_mesi.png"), width = 12, height = 5)
 ```
 
 **Issues:**

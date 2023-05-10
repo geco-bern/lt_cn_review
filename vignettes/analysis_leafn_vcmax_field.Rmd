@@ -392,17 +392,27 @@ gg_narea <- visreg(linmod_narea, "CNrt", gg = TRUE)
 gg_nmass <- visreg(linmod_nmass, "CNrt", gg = TRUE)
 gg_lma   <- visreg(linmod_lma,   "CNrt", gg = TRUE)
 
-gg_vcmax <- gg_vcmax +
+gg_vcmax_soilcn <- gg_vcmax +
+  labs(x = "Soil C:N", y = expression(paste("Log ",  italic(V)["cmax25"])),
+       subtitle = expression(paste(italic(p), " = 0.03"))) +
   theme_classic()
-gg_narea <- gg_narea +
+gg_narea_soilcn <- gg_narea +
+  labs(x = "Soil C:N", y = expression(paste("Log ", italic(N)["area"])),
+       subtitle = expression(paste(italic(p), " < 0.01"))) +
   theme_classic()
-gg_nmass <- gg_nmass +
+gg_nmass_soilcn <- gg_nmass +
+  labs(x = "Soil C:N", y = expression(paste("Log ", italic(N)["mass"])),
+       subtitle = expression(paste(italic(p), " < 0.01"))) +
   theme_classic()
-gg_lma <- gg_lma +
+gg_lma_soilcn <- gg_lma +
+  labs(x = "Soil C:N", y = "LMA") +
   theme_classic()
 
-(gg_vcmax + gg_narea) /
-  (gg_nmass + gg_lma)
+# (gg_vcmax + gg_narea) /
+#   (gg_nmass + gg_lma)
+
+cowplot::plot_grid(gg_nmass_soilcn, gg_narea_soilcn, gg_vcmax_soilcn, ncol = 3)
+ggsave(paste0(here::here(), "/fig/leaf_cn_soil_field.pdf"), width = 9, height = 3)
 ```
 
 Partial relationship analysis with N deposition
@@ -413,19 +423,49 @@ gg_nmass <- visreg(linmod_nmass, "log_ndep", gg = TRUE)
 gg_lma   <- visreg(linmod_lma,   "log_ndep", gg = TRUE)
 
 gg_vcmax <- gg_vcmax +
-  theme_classic()
-gg_narea <- gg_narea +
-  theme_classic()
-gg_nmass <- gg_nmass +
-  theme_classic()
-gg_lma <- gg_lma +
+  labs(x = "Log N deposition", 
+       y = expression(paste("Log ", italic(V)["cmax25"])),
+       subtitle = expression(paste(italic(p), " = 0.03"))) +
   theme_classic()
 
-(gg_vcmax + gg_narea) /
-  (gg_nmass + gg_lma)
+gg_narea <- gg_narea +
+  labs(x = "Log N deposition", 
+       y = expression(paste("Log ", italic(N)["area"])),
+       subtitle = expression(paste(italic(p), " < 0.01"))) +
+  theme_classic()
+
+gg_nmass <- gg_nmass +
+  labs(x = "Log N deposition", 
+       y = expression(paste("Log ", italic(N)["mass"])),
+       subtitle = expression(paste(italic(p), " < 0.01"))) +
+  theme_classic()
+
+gg_lma <- gg_lma +
+  labs(x = "Log N deposition", 
+       y = expression(paste("Log LMA")),
+       subtitle = expression(paste(italic(p), " < 0.01"))) +
+  theme_classic()
+
+# (gg_vcmax + gg_narea) /
+#   (gg_nmass + gg_lma)
+
+cowplot::plot_grid(gg_nmass, gg_narea, gg_vcmax, ncol = 3)
+ggsave(paste0(here::here(), "/fig/leaf_ndep_field.pdf"), width = 9, height = 3)
 ```
 
+#### Publication Figure
 
+```{r}
+cowplot::plot_grid(gg_nmass_soilcn, gg_narea_soilcn, gg_vcmax_soilcn, ncol = 3)
+ggsave(paste0(here::here(), "/fig/leaf_cn_soil_field.pdf"), width = 9, height = 3)
+
+cowplot::plot_grid(gg_nmass_soilcn, gg_narea_soilcn, gg_vcmax_soilcn,
+                   gg_nmass, gg_narea, gg_vcmax, 
+                   ncol = 3, labels = c("a", "b", "c", "d", "e", "f"))
+
+ggsave(paste0(here::here(), "/fig/leafn_field.pdf"), width = 9, height = 6)
+ggsave(paste0(here::here(), "/fig/leafn_field.png"), width = 9, height = 6)
+```
 
 #### Old predictors
 

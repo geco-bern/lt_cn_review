@@ -58,26 +58,77 @@ df_cnmodel_co2_after <- df_cnmodel_co2 |>
   filter(year %in% years_after) |> 
   summarise(across(where(is.numeric), mean))
 
-df_cnmodel_co2_logresponse <- log(df_cnmodel_co2_after / df_cnmodel_co2_before) |> 
+df_cnmodel_co2_logresponse <- df_cnmodel_co2_before  |> 
   mutate(agb = cleaf,
          anpp = npp_leaf,
          root_production = npp_root) |> 
   rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
          n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
-  pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
+  pivot_longer(cols = everything(), names_to = "var", values_to = "ambient") |> 
+  
+  left_join(
+    df_cnmodel_co2_after  |> 
+      mutate(agb = cleaf,
+             anpp = npp_leaf,
+             root_production = npp_root) |> 
+      rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+             n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
+      pivot_longer(cols = everything(), names_to = "var", values_to = "elevated"),
+    by = "var"
+  ) |> 
+  
+  # response ratio, normalised for the doubling of CO2
+  mutate(logrr_cnmodel = log(elevated / ambient) / log(2))
+
+# df_cnmodel_co2_logresponse <- log(df_cnmodel_co2_after / df_cnmodel_co2_before) / log(2)  |> 
+#   select(cleaf, npp_leaf, npp_root, nup, croot, narea, ninorg, gs_accl) |> 
+#   mutate(agb = cleaf,
+#          anpp = npp_leaf,
+#          root_production = npp_root) |> 
+#   rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+#          n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
+#   pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
 ```
 
 Visualisation
+
 ```{r}
-var_order <- c("asat", "gpp", "vcmax", "jmax", # "gs", 
-               "leaf_n_area", "leaf_n_mass", 
-               "leaf_cn", "lai", 
-               "leaf_biomass", "anpp", "agb", 
+var_order <- c("asat", 
+               "gpp",
+               "vcmax", 
+               "jmax",
+               "leaf_n_area", 
+               "leaf_n_mass", 
+               "leaf_cn", 
+               "lai", 
+               "leaf_biomass", 
+               "anpp", 
+               "agb", 
                "root_production",
-               "root_shoot_ratio", "n_uptake", 
+               "root_shoot_ratio",
+               "n_uptake", 
                "n_inorg" 
                )
-df_box_co2 |> 
+
+mylabl = rev(c(
+    expression(paste(italic("A")[sat])),
+    "GPP",
+    expression(paste(italic("V")[cmax])),
+    expression(paste(italic("J")[max])),
+    expression(paste("Leaf ", italic("N")[area])),
+    expression(paste("Leaf ", italic("N")[mass])),
+    "Leaf C:N",
+    "LAI",
+    "Leaf mass",
+    "ANPP",
+    "AGB",
+    "Root NPP",
+    "Root:shoot",
+    "N uptake",
+    "Inorganic N"
+  ))
+
+gg_mesi_cnmodel_eco2 <- df_box_co2 |> 
   
   left_join(df_cnmodel_co2_logresponse, by = "var") |> 
   
@@ -91,12 +142,11 @@ df_box_co2 |>
                  ) +
   geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
-  coord_flip() +
-  # ylim(-1, 1) +
-  labs(title = "MESI data", subtitle = expression(paste("Response to eCO"[2]))) +
-  theme_classic()
+  labs(x = "Variable", y = "Normalised log response ratio", title = expression(paste("Response to eCO"[2]))) +
+  scale_x_discrete("", labels = mylabl) +
+  coord_flip()
 
+gg_mesi_cnmodel_eco2
 ggsave("../fig/mesi_cnmodel_co2.pdf")
 ```
 
@@ -145,7 +195,15 @@ Visualisation
 ```{r}
 var_order <- c("anpp", "root_production", "root_shoot_ratio", "n_uptake", "n_inorg")
 
-df_box_nfert |> 
+mylabl = rev(c(
+    "ANPP",
+    "Root NPP",
+    "Root:shoot",
+    "N uptake",
+    "Inorganic N"
+  ))
+
+gg_mesi_cnmodel_nfert <- df_box_nfert |> 
   left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
   
   ## give it a nice order (for plotting)
@@ -158,11 +216,10 @@ df_box_nfert |>
                  ) +
   geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
-  coord_flip() +
-  # ylim(-1, 1) +
-  labs(title = "MESI data", subtitle = "Response to N-fertilization") +
-  theme_classic()  
+  labs(x = "", y = "Normalised log response ratio", title = "Response to N-fertilization") +
+  scale_x_discrete("", labels = mylabl) +
+  coord_flip()
+
   
   # ggplot() +
   # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -175,5 +232,14 @@ df_box_nfert |>
   # # ylim(-1, 1) +
   # labs(title = "MESI data", subtitle = "Response to N-fertilization")
 
+gg_mesi_cnmodel_nfert
 ggsave("../fig/mesi_cnmodel_nfert.pdf")
+```
+
+## Publication figure
+
+```{r}
+cowplot::plot_grid(gg_mesi_cnmodel_eco2, gg_mesi_cnmodel_nfert, ncol = 1, rel_heights = c(1, 0.43))
+ggsave(paste0(here::here(), "/fig/mesi_cnmodel.pdf"), width = 6, height = 8)
+ggsave(paste0(here::here(), "/fig/mesi_cnmodel.png"), width = 6, height = 8)
 ```
