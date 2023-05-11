@@ -105,6 +105,7 @@ var_order <- c("asat",
                "anpp", 
                "agb", 
                "root_production",
+               "bgb",
                "root_shoot_ratio",
                "n_uptake", 
                "n_inorg" 
@@ -123,6 +124,7 @@ mylabl = rev(c(
     "ANPP",
     "AGB",
     "Root NPP",
+    "BGB",
     "Root:shoot",
     "N uptake",
     "Inorganic N"
@@ -239,7 +241,7 @@ ggsave("../fig/mesi_cnmodel_nfert.pdf")
 ## Publication figure
 
 ```{r}
-cowplot::plot_grid(gg_mesi_cnmodel_eco2, gg_mesi_cnmodel_nfert, ncol = 1, rel_heights = c(1, 0.43))
+cowplot::plot_grid(gg_mesi_cnmodel_eco2, gg_mesi_cnmodel_nfert, ncol = 1, rel_heights = c(1, 0.43), labels = c("a", "b"))
 ggsave(paste0(here::here(), "/fig/mesi_cnmodel.pdf"), width = 6, height = 8)
 ggsave(paste0(here::here(), "/fig/mesi_cnmodel.png"), width = 6, height = 8)
 ```
