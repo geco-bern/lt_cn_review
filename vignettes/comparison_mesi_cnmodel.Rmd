@@ -1,0 +1,247 @@
+---
+title: "Comparison of CN-model results againtst MESI"
+author: "Beni Stocker"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    #theme: paper
+    toc: true
+    toc_float: true
+    toc_depth: 2
+# output:
+#   pdf_document:
+#     toc: true
+#     toc_depth: 2
+header-includes:
+   - \usepackage{amsmath}
+# bibliography: bibliography.bib
+---
+
+```{r, warning=FALSE}
+library(dplyr)       # for working with ease
+library(tidyr)       # for working with ease
+library(stringr)
+library(ggplot2)
+library(readr)
+library(metafor)     # for meta analysis
+library(MAd)         # for meta analysis
+```
+
+## CO2 experiments
+
+Load CO2 meta-analysis results from MESI (produced with `analysis_mesi.Rmd`). 
+```{r}
+df_box_co2 <- read_rds("../data/df_box_mesi_co2.rds")
+```
+
+Add model outputs to this data frame. This is produced with `analysis/exp_co2_cnmodel.R`.
+```{r}
+df_cnmodel_co2 <- read_csv(paste0(here::here(), "/data/output_cnmodel_co2.csv"))
+
+## aggregate before and after
+years_before <- 2007:2009
+years_after  <- 2015:2025
+
+df_cnmodel_co2_before <- df_cnmodel_co2 |> 
+  mutate(root_shoot_ratio = croot / cleaf,
+         leaf_n_mass = narea/lma,
+         leaf_cn = cleaf / nleaf) |> 
+  mutate(year = lubridate::year(date)) |> 
+  filter(year %in% years_before) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_cnmodel_co2_after <- df_cnmodel_co2 |> 
+  mutate(root_shoot_ratio = croot / cleaf,
+         leaf_n_mass = narea/lma,
+         leaf_cn = cleaf / nleaf) |> 
+  mutate(year = lubridate::year(date)) |> 
+  filter(year %in% years_after) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_cnmodel_co2_logresponse <- df_cnmodel_co2_before  |> 
+  mutate(agb = cleaf,
+         anpp = npp_leaf,
+         root_production = npp_root) |> 
+  rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+         n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
+  pivot_longer(cols = everything(), names_to = "var", values_to = "ambient") |> 
+  
+  left_join(
+    df_cnmodel_co2_after  |> 
+      mutate(agb = cleaf,
+             anpp = npp_leaf,
+             root_production = npp_root) |> 
+      rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+             n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
+      pivot_longer(cols = everything(), names_to = "var", values_to = "elevated"),
+    by = "var"
+  ) |> 
+  
+  # response ratio, normalised for the doubling of CO2
+  mutate(logrr_cnmodel = log(elevated / ambient) / log(2))
+
+# df_cnmodel_co2_logresponse <- log(df_cnmodel_co2_after / df_cnmodel_co2_before) / log(2)  |> 
+#   select(cleaf, npp_leaf, npp_root, nup, croot, narea, ninorg, gs_accl) |> 
+#   mutate(agb = cleaf,
+#          anpp = npp_leaf,
+#          root_production = npp_root) |> 
+#   rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+#          n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
+#   pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
+```
+
+Visualisation
+
+```{r}
+var_order <- c("asat", 
+               "gpp",
+               "vcmax", 
+               "jmax",
+               "leaf_n_area", 
+               "leaf_n_mass", 
+               "leaf_cn", 
+               "lai", 
+               "leaf_biomass", 
+               "anpp", 
+               "agb", 
+               "root_production",
+               "bgb",
+               "root_shoot_ratio",
+               "n_uptake", 
+               "n_inorg" 
+               )
+
+mylabl = rev(c(
+    expression(paste(italic("A")[sat])),
+    "GPP",
+    expression(paste(italic("V")[cmax])),
+    expression(paste(italic("J")[max])),
+    expression(paste("Leaf ", italic("N")[area])),
+    expression(paste("Leaf ", italic("N")[mass])),
+    "Leaf C:N",
+    "LAI",
+    "Leaf mass",
+    "ANPP",
+    "AGB",
+    "Root NPP",
+    "BGB",
+    "Root:shoot",
+    "N uptake",
+    "Inorganic N"
+  ))
+
+gg_mesi_cnmodel_eco2 <- df_box_co2 |> 
+  
+  left_join(df_cnmodel_co2_logresponse, by = "var") |> 
+  
+  ## give it a nice order (for plotting)
+  filter(var %in% var_order) |> 
+  mutate(var = factor(var, levels = rev(var_order))) |>
+  
+  ggplot() +
+  geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+                 fill = "#777055ff", color = "black", alpha = .5, width = 0.5 
+                 ) +
+  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
+  labs(x = "Variable", y = "Normalised log response ratio", title = expression(paste("Response to eCO"[2]))) +
+  scale_x_discrete("", labels = mylabl) +
+  coord_flip()
+
+gg_mesi_cnmodel_eco2
+ggsave("../fig/mesi_cnmodel_co2.pdf")
+```
+
+## N-fertilisation experiments
+
+Load CO2 meta-analysis results from MESI (produced with `analysis_mesi.Rmd`). 
+```{r}
+df_box_nfert <- read_rds("../data/df_box_mesi_nfert.rds")
+```
+
+Add model outputs to this data frame. This is produced with `analysis/exp_nfert_cnmodel.R`.
+```{r}
+df_cnmodel_nfert <- read_csv(paste0(here::here(), "/data/output_cnmodel_nfert.csv"))
+
+## aggregate before and after
+years_before <- 2007:2009
+years_after  <- 2015:2025
+
+df_cnmodel_nfert_before <- df_cnmodel_nfert |> 
+  mutate(root_shoot_ratio = croot / cleaf,
+         leaf_n_mass = narea/lma,
+         leaf_cn = cleaf / nleaf) |> 
+  mutate(year = lubridate::year(date)) |> 
+  filter(year %in% years_before) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_cnmodel_nfert_after <- df_cnmodel_nfert |> 
+  mutate(root_shoot_ratio = croot / cleaf,
+         leaf_n_mass = narea/lma,
+         leaf_cn = cleaf / nleaf) |> 
+  mutate(year = lubridate::year(date)) |> 
+  filter(year %in% years_after) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_cnmodel_nfert_logresponse <- log(df_cnmodel_nfert_after / df_cnmodel_nfert_before) |> 
+  mutate(agb = cleaf,
+         anpp = npp_leaf,
+         root_production = npp_root) |> 
+  rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+         n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
+  pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
+```
+
+
+Visualisation
+```{r}
+var_order <- c("anpp", "root_production", "root_shoot_ratio", "n_uptake", "n_inorg")
+
+mylabl = rev(c(
+    "ANPP",
+    "Root NPP",
+    "Root:shoot",
+    "N uptake",
+    "Inorganic N"
+  ))
+
+gg_mesi_cnmodel_nfert <- df_box_nfert |> 
+  left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
+  
+  ## give it a nice order (for plotting)
+  filter(var %in% var_order) |> 
+  mutate(var = factor(var, levels = rev(var_order))) |>  
+  
+  ggplot() +
+  geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+                 fill = "#777055ff", color = "black", alpha = 0.6, width = 0.5 
+                 ) +
+  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
+  labs(x = "", y = "Normalised log response ratio", title = "Response to N-fertilization") +
+  scale_x_discrete("", labels = mylabl) +
+  coord_flip()
+
+  
+  # ggplot() +
+  # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+  #                fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+  #                ) +
+  # geom_point(aes(x = var, y = logrr_cnmodel), size = 3, color = "royalblue" ) +
+  # geom_hline( yintercept = 0.0, size = 0.5 ) +
+  # labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  # coord_flip() +
+  # # ylim(-1, 1) +
+  # labs(title = "MESI data", subtitle = "Response to N-fertilization")
+
+gg_mesi_cnmodel_nfert
+ggsave("../fig/mesi_cnmodel_nfert.pdf")
+```
+
+## Publication figure
+
+```{r}
+cowplot::plot_grid(gg_mesi_cnmodel_eco2, gg_mesi_cnmodel_nfert, ncol = 1, rel_heights = c(1, 0.43), labels = c("a", "b"))
+ggsave(paste0(here::here(), "/fig/mesi_cnmodel.pdf"), width = 6, height = 8)
+ggsave(paste0(here::here(), "/fig/mesi_cnmodel.png"), width = 6, height = 8)
+```

@@ -21,6 +21,7 @@ header-includes:
 library(tidyverse)   # for working with ease
 library(metafor)     # for meta analysis
 library(MAd)         # for meta analysis
+source("~/lt_cn_review/R/analyse_meta.R")
 ```
 
 
@@ -47,6 +48,10 @@ df <- read_csv("~/data/nfert_liang/nfert_liang_combined.csv")
 
 Make data (more) conform with MESI.
 ```{r}
+# ALL:
+# use_vars <- c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")
+use_vars <- c("Vcmax", "Narea", "Nmass", "LAI", "Leaf area per plant", "Leaf biomass")
+
 df <- df %>% 
   mutate(db = "liang",
          treatment = "f") %>% 
@@ -62,7 +67,16 @@ df <- df %>%
                               "woody", # MESI name
                               ifelse("Herb",      # Liang name
                                      "herbaceous" # MESI name
-                                     )))
+                                     ))) |> 
+  
+  ## to make it comparable, chose only data below 300 kg ha-1 yr-1
+  filter(ndep_kg_ha_yr <= 300) |> 
+
+  # ## exclude data where N-fertilisation levels are very large (greater than 500 kg ha-1 yr-1 = 50 g_n_per_m2_and_year)
+  # filter(ndep_kg_ha_yr <= 500) |> 
+  
+  ## Use only variables that were also used for the MESI-CO2 meta-analysis
+  filter(response %in% use_vars)
 
 # ## growth forms in Liang and in MESI
 # df$growthform %>% unique()
@@ -72,6 +86,22 @@ df <- df %>%
 Missing info in Liang et al.:
 - elevation (`elv`)
 
+Classify into N-fertilisation levels (l1, l2, l3).
+```{r}
+df <- df |> 
+  mutate(nfert_lev = ifelse(ndep_kg_ha_yr < 100, 
+                            "f1",
+                            ifelse(ndep_kg_ha_yr < 200,
+                                   "f2",
+                                   "f3")))
+```
+
+Distribution of N treatment level
+```{r}
+ggplot(data = df,
+       aes(x = ndep_kg_ha_yr, y = ..density.., fill = nfert_lev)) +
+  geom_histogram()
+```
 
 ## Data overview
 
@@ -79,8 +109,6 @@ Missing info in Liang et al.:
 
 Let's use just data for above specified variables.
 ```{r}
-use_vars <- c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")
-
 df2 <- df %>% 
   filter(response %in% use_vars)
 ```
@@ -92,6 +120,8 @@ $$
 SD = SE \sqrt{N}
 $$
 
+## Response ratios
+
 Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
 ```{r}
 df3 <- df2 %>%
@@ -99,7 +129,7 @@ df3 <- df2 %>%
   filter(sd_c > 0, sd_t > 0) %>% 
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp = citation, response, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, exp = citation, response, nfert_lev, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
   drop_na() %>% 
   
   ## Get logarithm of response ratio and its variance
@@ -119,7 +149,12 @@ df3 <- df2 %>%
   mutate( logr_se = sqrt(logr_var) / sqrt(rep_t) )
 ```
 
+## Aggregate by experiment
+
 Aggregate all measurements (species, multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
+
+### All pooled 
+
 ```{r}
 df4 <- df3 %>% 
   
@@ -162,31 +197,133 @@ df4 <- df3 %>%
   mutate( logr_se = sqrt(logr_var) / sqrt(n_c) )
 ```
 
+### By N-fert level
+
+```{r}
+df4b <- df3 %>% 
+  
+  filter(!is.na(logr_var) & !is.na(logr)) %>% 
+  
+  # re-create ID (common ID per experiment and response variable)
+  select(-id) %>%
+  mutate( id = paste(exp, response, nfert_lev, sep = "_XXX_")) %>% 
+  
+  MAd::agg( 
+    id = id, 
+    es = logr, 
+    var = logr_var,
+    cor = 1.0, 
+    method = "BHHR", 
+    data = . 
+    ) %>% 
+
+  ## to keep the output readable from the console output
+  as_tibble() %>% 
+  
+  # separate ID again for ease of data use
+  mutate( id = str_split(id, "_XXX_") ) %>%
+  mutate( exp = purrr::map_chr(id, 1),
+          response = purrr::map_chr(id, 2),
+          nfert_lev = purrr::map_chr(id, 3) ) %>%
+  
+  ## rename again
+  select(exp, response, nfert_lev, logr = es, logr_var = var) %>%
+
+  ## add number of observations (sum of plots and repeated samplings)
+  left_join(
+    df3 %>%
+      group_by(exp, response, nfert_lev) %>%
+      summarise(n_c = sum(rep_c), n_t = sum(rep_t)),
+    by = c("exp", "response", "nfert_lev")
+  ) %>% 
+  
+  ## get standard error. Verify if number available observations are identical
+  ## for ambient and elevated. Use N from control here (n_c).
+  mutate( logr_se = sqrt(logr_var) / sqrt(n_c) )
+```
+
+## Meta-analysis
+
+### All pooled
+
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
-source("~/lt_cn_review/R/analyse_meta.R")
-out  <- purrr::map(as.list(use_vars), ~analyse_meta(df4 %>% rename(var = response), nam_target = .))
+out  <- purrr::map(
+  as.list(use_vars), 
+  ~analyse_meta(df4 %>% 
+                  rename(var = response),
+                nam_target = .
+                ))
 names(out) <- use_vars
 df_box <- purrr::map_dfr(out, "df_box")
 ```
 
+### By N-fert level
+
+Separate by fertilisation level
+```{r}
+df4b <- df4b |>
+  filter(response %in% use_vars) |> 
+  mutate(var_nfert = paste0(response, "_XXX_", nfert_lev))
+
+use_varsb <- df4b |> 
+  pull(var_nfert) |> 
+  unique()
+  
+outb  <- purrr::map(
+  as.list(use_varsb), 
+  ~analyse_meta(df4b |>  
+                  rename(var = var_nfert), 
+                nam_target = .
+                ))
+
+names(outb) <- use_varsb
+df_boxb <- purrr::map_dfr(outb, "df_box") |> 
+  separate(var, 
+           c("var", "nfert_lev"),
+           sep = "_XXX_")
+saveRDS(df_boxb, file = "../data/df_boxb_liang_nfert.rds")
+```
 
 ## Visualisations
 
+### All pooled
+
 Plot dots and my box.
 ```{r}
-df4 %>%
-  ## give it a nice order (for plotting)
-  mutate(response = factor(response, levels = rev(c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")))) %>% 
+mylabs <- c(
+  expression(paste(italic("V")[cmax])),
+  expression(paste(italic("N")[area])),
+  expression(paste(italic("N")[mass])),
+  "LAI",
+  "Leaf area",
+  "Leaf biomass"
+)
 
-  ggplot( aes(x = response, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.3), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0) ) +
+df_plot <- df4 |> 
+  ## give it a nice order (for plotting)
+  filter(response %in% use_vars) |> 
+  mutate(response = factor(response, levels = rev(use_vars)))
+
+gg_nfert_liang <- ggplot(data = df_plot, 
+       aes(x = response, y = logr)) +
+  geom_jitter( color = rgb(0,0,0,0.4), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0), show.legend = FALSE ) +
   geom_crossbar( data = df_box, aes(x = var, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "black", alpha = 0.6, width = 0.5 ) +
   geom_hline( yintercept = 0.0, size = 0.5) +
-  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  labs(x = "Variable", y = "Log Response Ratio") +
   coord_flip() +
-  ylim(-1, 1)  +
-  labs(title = "Liang et al. 2020 data", subtitle = "Response to N-fertilisation")
+  scale_x_discrete("", labels = rev(mylabs)) +
+  labs(title = "Response to N-fertilisation",
+       subtitle = "Liang et al. 2020 data",
+       x = "", 
+       y = "Log response ratio")
+
+saveRDS(gg_nfert_liang, file = paste0(here::here(), "/data/gg_nfert_liang.rds"))
+
+gg_nfert_liang
+ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.pdf"), width = 8, height = 6)
+ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.png"), width = 8, height = 6)
+
 ```
 
 **Findings:**
@@ -208,13 +345,59 @@ metafor::forest(out$Narea$modl)
 # Nmass
 metafor::forest(out$Nmass$modl)
 
-# LMA
-metafor::forest(out$LMA$modl)
-
-# SLA
-metafor::forest(out$SLA$modl)
+# # LMA
+# metafor::forest(out$LMA$modl)
+# 
+# # SLA
+# metafor::forest(out$SLA$modl)
 ```
 
+### By fertilisation level
+
+Plot dots and my box.
+```{r}
+df_plot <- df4b |> 
+  drop_na(response) |> 
+  
+  ## give it a nice order (for plotting)
+  mutate(myvar = factor(response, levels = rev(use_vars)))
+
+gg_nfert_liang_nfert <- ggplot() +
+  geom_point( data = df_plot,
+               aes(x = myvar, y = logr, size = 1/logr_se, group = nfert_lev),
+               alpha = 0.5,
+               # position = position_jitter(w = 0.2, h = 0),
+               position = position_dodge(0.7),
+               show.legend = FALSE
+               ) +
+  geom_crossbar( data = df_boxb %>% drop_na(var), 
+                 aes(x = var, 
+                     y = middle, 
+                     ymin = ymin, ymax = ymax, 
+                     fill = nfert_lev, 
+                     group = nfert_lev
+                     ),
+                 position = position_dodge(0.7),
+                 color = "black", 
+                 alpha = 0.6,
+                 width = 0.5 
+                 ) +
+  geom_hline( yintercept = 0.0, size = 0.5) +
+  coord_flip() +
+  scale_x_discrete("", labels = mylabl) +
+  scale_fill_viridis_d(name = "Fertilisation \nlevel", labels = c("low", "mid", "high")) +
+  scale_x_discrete("", labels = rev(mylabs)) +
+  labs(title = "Response to N-fertilisation",
+       subtitle = "Liang et al. 2020 data",
+       x = "", 
+       y = "Log response ratio")
+
+saveRDS(gg_nfert_liang_nfert, file = paste0(here::here(), "/data/gg_nfert_liang_nfert.rds"))
+
+gg_nfert_liang_nfert
+ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang_nfert.pdf"), width = 8, height = 6)
+ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang_nfert.png"), width = 8, height = 6)
+```
 
 <!-- # N fertilisation experiments -->
 

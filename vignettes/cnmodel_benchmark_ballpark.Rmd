@@ -1,0 +1,262 @@
+---
+title: "Ballpark benchmarking of cnmodel"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rbeni)
+library(patchwork)
+library(skimr)
+```
+
+# Ballpark benchmarking
+
+## Load model output
+
+Outputs are generated with `rsofun/analysis/example_cnmodel_ch_oe1.R`. Copy them to `./data/`. This is for a simulation for FLUXNET site CH-Oe1, a grassland. 
+
+```{r}
+system("cp ~/rsofun/tmp/output_cnmodel_ch_oe1.R ../data/")
+df_rsofun <- readRDS("../data/output_cnmodel_ch_oe1.R")
+# df_rsofun <- read_csv("../data/output_cnmodel_co2.csv")
+
+df_rsofun_agg <- df_rsofun |> 
+  summarise(across(where(is.numeric), mean))
+
+adf_rsofun <- df_rsofun |> 
+  as_tibble() |> 
+  mutate(year = lubridate::year(date)) |> 
+  group_by(year) |> 
+  summarise(gpp = sum(gpp)) |> 
+  ungroup() |> 
+  summarise(gpp = mean(gpp))
+
+doydf_rsofun <- df_rsofun |> 
+  as_tibble() |> 
+  mutate(doy = lubridate::yday(date)) |> 
+  group_by(doy) |> 
+  summarise(gpp = mean(gpp), fapar = mean(fapar))
+```
+
+
+## Traits
+
+Plot distribution of all observational values (ridge plot) and cnmodel (big dot at the bottom)
+
+- LMA
+- Narea
+- Nmass
+- Vcmax
+
+Get data from Ning's dataset.
+```{r}
+df <- read_csv("~/data/leafn_vcmax_ning_dong/data_leafn_vcmax_ning_dong.csv") %>% 
+  rename(lat = Latitude, lon = longitude)
+```
+
+Plot cnmodel outputs on top of distribution of observations of non-woody vegetation.
+```{r}
+df2 <- df |> 
+  filter(woody == "non-woody") |> 
+  rename(lma = LMA, narea = Narea, nmass = Nmass, vcmax = vcmax_obs)
+
+gg1 <- ggplot() +
+  geom_density(aes(lma, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
+  theme_classic() +
+  geom_point(aes(x = lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = "LMA") +
+  coord_cartesian(clip = 'off') +
+  scale_y_continuous(expand = c(0, 0))
+
+gg2 <- ggplot() +
+  geom_density(aes(nmass, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
+  theme_classic() +
+  geom_point(aes(x = narea/lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = expression(italic("N")[mass])) +
+  coord_cartesian(clip = 'off') +
+  scale_y_continuous(expand = c(0, 0))
+
+gg3 <- ggplot() +
+  geom_density(aes(narea, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
+  theme_classic() +
+  geom_point(aes(x = narea, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = expression(italic("N")[area])) +
+  coord_cartesian(clip = 'off') +
+  scale_y_continuous(expand = c(0, 0))
+
+## Vcmax in micro-mol m-2 s-1
+gg4 <- ggplot() +
+  geom_density(aes(vcmax, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
+  theme_classic() +
+  geom_point(aes(x = 1e6 * vcmax, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  labs(x = expression(italic("V")[cmax])) +
+  coord_cartesian(clip = 'off') +
+  scale_y_continuous(expand = c(0, 0))
+
+gg1 /
+  gg2 / 
+  gg3 /
+  gg4
+```
+
+## Fluxes
+
+### GPP
+
+Plot distribution of annual total in temperate, not water-limited grasslands, obtained from FLUXNET
+
+```{r}
+library(ingestr)
+
+settings_fluxnet <- list(
+  getswc       = FALSE,
+  filter_ntdt  = FALSE,
+  threshold_GPP= 0.8,
+  remove_neg   = FALSE
+  )
+
+adf_fluxnet <- ingest(
+  siteinfo = siteinfo_fluxnet2015 |> filter(classid == "GRA" & str_detect(koeppen_code, "^C") ),
+  source   = "fluxnet",
+  getvars  = list(gpp = "GPP_NT_VUT_REF"),
+  dir      = "~/data/FLUXNET-2015_Tier1/20191024/YY/", # adjust this with your local path
+  settings = settings_fluxnet,
+  timescale= "y"
+  )
+
+adf_fluxnet <- adf_fluxnet |> 
+  mutate(data = purrr::map(data, ~summarise(., gpp = mean(gpp)))) |> 
+  unnest(data)
+```
+
+```{r}
+ggplot() +
+  geom_histogram(data = adf_fluxnet, aes(gpp, ..count..), 
+                 fill = "#777055ff", color = NA, alpha = 0.5,
+                 binwidth = 200) +
+  theme_classic() +
+  geom_point(aes(x = gpp, y = 0), data = adf_rsofun, size = 10, color = "#29a274ff") +
+  labs(x = expression(paste("GPP (gC m"^-2, "yr"^-1, ")"))) +
+  coord_cartesian(clip = 'off') +
+  scale_y_continuous(expand = c(0, 0))
+```
+
+### NPP
+
+Plot distribution of total annual biomass production of unmanaged grasslands, obtained from Matteo’s dataset.
+
+## Allocation
+
+Plot distribution of root mass fractions in temperate, not water-limited grasslands
+
+# Seasonality benchmarking
+
+→ Master student
+
+## fAPAR
+
+- Plot mean seasonal cycle of observations and modelled fAPAR of different grassland (FLUXNET2015) sites separately.
+
+```{r}
+filn <- "../data/ddf_modis_CH-Oe1.rds"
+if (!file.exists(filn)){
+  
+  settings_modis <- get_settings_modis(
+    bundle            = "modis_fpar",
+    data_path         = tempdir(),
+    method_interpol   = "loess",
+    network           = "fluxnet",
+    keep              = TRUE,
+    overwrite_raw     = FALSE,
+    overwrite_interpol= TRUE,
+    n_focal           = 0
+    )
+  
+  df_modis_fpar <- ingest(
+    siteinfo_fluxnet2015 |> filter(sitename == "CH-Oe1"),
+    source = "modis",
+    settings = settings_modis,
+    parallel = FALSE,
+    ncores = 1
+    )
+  
+  df_modis_fpar <- df_modis_fpar |> 
+    unnest(data) |> 
+    rename(fapar = modisvar_filled)
+
+  write_rds(df_modis_fpar, file = filn)
+  
+} else {
+  
+  df_modis_fpar <- readRDS(filn)
+  
+}
+
+doydf_modis <- df_modis_fpar |> 
+  unnest(data) |> 
+  mutate(doy = lubridate::yday(date)) |> 
+  group_by(doy) |> 
+  summarise(fapar = mean(fapar, na.rm = TRUE))
+```   
+
+```{r}
+ggplot() +
+  geom_line(data = doydf_modis,  aes(doy, fapar), color = "#777055ff") +
+  geom_line(data = doydf_rsofun, aes(doy, fapar), color = "#29a274ff") +
+  theme_classic()
+```
+
+## Fluxes
+
+### GPP
+
+Plot mean seasonal cycle of observations and modelled GPP and NEE of different grassland (FLUXNET2015) sites separately.
+    
+```{r}
+filn <- "../data/ddf_fluxnet_CH-Oe1.rds"
+if (!file.exists(filn)){
+  settings_fluxnet <- list(
+    getswc       = FALSE,
+    filter_ntdt  = FALSE,
+    threshold_GPP= 0.8,
+    remove_neg   = FALSE
+    )
+  
+  ddf_fluxnet <- ingest(
+    siteinfo = siteinfo_fluxnet2015 |> filter(sitename == "CH-Oe1"),
+    source   = "fluxnet",
+    getvars  = list(gpp = "GPP_NT_VUT_REF"),
+    dir      = "~/data/FLUXNET-2015_Tier1/20191024/DD/", # adjust this with your local path
+    settings = settings_fluxnet,
+    timescale= "d"
+    )
+  write_rds(ddf_fluxnet, file = filn)
+} else {
+  ddf_fluxnet <- readRDS(filn)
+}
+
+doydf_fluxnet <- ddf_fluxnet |> 
+  unnest(data) |> 
+  mutate(doy = lubridate::yday(date)) |> 
+  group_by(doy) |> 
+  summarise(gpp = mean(gpp))
+```    
+
+
+```{r}
+ggplot() +
+  geom_line(data = doydf_fluxnet, aes(doy, gpp), color = "#777055ff") +
+  geom_line(data = doydf_rsofun, aes(doy, gpp), color = "#29a274ff") +
+  theme_classic()
+```
+    
+### NEE    
+    
+- N2O
+    - Plot time series from simulation where forcing is well-known (building on what Yunke started)
