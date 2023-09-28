@@ -75,6 +75,7 @@ df <- df %>%
          log_Narea = log(Narea),
          log_Nmass = log(Nmass),
          log_LMA = log(LMA),
+         soil_nc = 1/soil_cn
          )
 ```
 
@@ -331,6 +332,9 @@ if (!file.exists(filn)){
 } else {
   df <- read_csv(filn)
 }
+
+df <- df |> 
+  mutate(nc_soil = 1/CNrt)
 ```
 
 ### Multivariate analysis
@@ -379,11 +383,30 @@ df <- df |>
 Fit multivariate models.
 ```{r}
 # removed: mgdd0 (don't know what it is)
-linmod_vcmax <- lm(log_vcmax25_obs ~ log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
-linmod_narea <- lm(log_Narea ~       log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
-linmod_nmass <- lm(log_Nmass ~       log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
-linmod_lma   <- lm(log_LMA ~         log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, data = df)
+linmod_vcmax <- lm(log_vcmax25_obs ~ log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+                   data = df)
+linmod_narea <- lm(log_Narea ~       log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+                   data = df)
+linmod_nmass <- lm(log_Nmass ~       log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+                   data = df)
+linmod_lma   <- lm(log_LMA ~         log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+                   data = df)
 ```
+
+Check collinearity with variance inflation factor. (the same for all models). They are all below 5 - that's good (James et al., 2014).
+
+*James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani. 2014. An Introduction to Statistical Learning: With Applications in R. Springer Publishing Company, Incorporated.*
+```{r}
+vif(linmod_vcmax)
+vif(linmod_narea)
+vif(linmod_nmass)
+vif(linmod_lma)
+```
+
 
 Partial relationship analysis with soil C:N.
 ```{r}
@@ -411,8 +434,8 @@ gg_lma_soilcn <- gg_lma +
 # (gg_vcmax + gg_narea) /
 #   (gg_nmass + gg_lma)
 
-cowplot::plot_grid(gg_nmass_soilcn, gg_narea_soilcn, gg_vcmax_soilcn, ncol = 3)
-ggsave(paste0(here::here(), "/fig/leaf_cn_soil_field.pdf"), width = 9, height = 3)
+cowplot::plot_grid(gg_lma_soilcn, gg_nmass_soilcn, gg_narea_soilcn, gg_vcmax_soilcn, ncol = 4)
+ggsave(paste0(here::here(), "/fig/leaf_cn_soil_field.pdf"), width = 12, height = 3)
 ```
 
 Partial relationship analysis with N deposition
@@ -449,12 +472,129 @@ gg_lma <- gg_lma +
 # (gg_vcmax + gg_narea) /
 #   (gg_nmass + gg_lma)
 
-cowplot::plot_grid(gg_nmass, gg_narea, gg_vcmax, ncol = 3)
-ggsave(paste0(here::here(), "/fig/leaf_ndep_field.pdf"), width = 9, height = 3)
+cowplot::plot_grid(gg_lma, gg_nmass, gg_narea, gg_vcmax, ncol = 4)
+ggsave(paste0(here::here(), "/fig/leaf_ndep_field.pdf"), width = 12, height = 3)
 ```
 
 #### Publication Figure
 
+t-values
+```{r}
+df_tvals <- tibble(
+  pred = names(summary(linmod_vcmax)$coefficients[,"t value"]),
+  tval = summary(linmod_vcmax)$coefficients[,"t value"],
+  pval = summary(linmod_vcmax)$coefficients[,"Pr(>|t|)"]
+  ) |> 
+  mutate(
+    var = "vcmax"
+  ) |> 
+  bind_rows(
+    tibble(
+      pred = names(summary(linmod_narea)$coefficients[,"t value"]),
+      tval = summary(linmod_narea)$coefficients[,"t value"],
+      pval = summary(linmod_narea)$coefficients[,"Pr(>|t|)"]
+      ) |> 
+      mutate(
+        var = "narea"
+      )
+  ) |> 
+  bind_rows(
+    tibble(
+      pred = names(summary(linmod_nmass)$coefficients[,"t value"]),
+      tval = summary(linmod_nmass)$coefficients[,"t value"],
+      pval = summary(linmod_nmass)$coefficients[,"Pr(>|t|)"]
+      ) |> 
+      mutate(
+        var = "nmass"
+      )
+  ) |> 
+  bind_rows(
+    tibble(
+      pred = names(summary(linmod_lma)$coefficients[,"t value"]),
+      tval = summary(linmod_lma)$coefficients[,"t value"],
+      pval = summary(linmod_lma)$coefficients[,"Pr(>|t|)"]
+      ) |> 
+      mutate(
+        var = "lma"
+      )
+  ) |> 
+  mutate(is_significant = pval < 0.05)
+```
+
+```{r}
+var_names <- list(
+  "vcmax" = expression(paste(italic(V)[cmax])),
+  "narea" = expression(paste(italic(N)[area])),
+  "nmass" = expression(paste(italic(N)[mass])),
+  "lma" = "LMA"
+)
+
+var_labeller <- function(variable, value){
+  return(var_names[value])
+}
+
+df_tvals |> 
+  filter(pred != "(Intercept)") |> 
+  ggplot(aes(pred, tval, fill = is_significant)) +
+  geom_hline(yintercept = 0, color = "grey70") +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  labs(x = "") +
+  scale_x_discrete(labels = c("soil C:N", 
+                              expression(paste("log ", italic(N)[dep])), 
+                              "log VPD", 
+                              "PPFD", 
+                              expression(paste(italic(T)[g])))) +
+  scale_fill_manual(values = c("grey80", "grey30")) + 
+  coord_flip() +
+  facet_wrap(~factor(var, levels = c("vcmax", "narea", "nmass", "lma")),
+             labeller = var_labeller) + 
+  labs(y = expression(italic(t)-value)) +
+  theme(
+    strip.background = element_rect(fill = "grey70", color = NA),
+    strip.text = element_text(color = "black", size = 10),
+    legend.position = "none"
+  )
+
+ggsave(paste0(here::here(), "/fig/tvals_bars.pdf"), width = 8, height = 5)
+```
+
+```{r}
+df_tvals |> 
+  mutate(var = factor(var, levels = rev(c("vcmax", "narea", "nmass", "lma")))) |> 
+  filter(pred != "(Intercept)") |> 
+  # select(tval, pred, var) |>
+  # pivot_wider(values_from = "tval", names_from = "pred") |>
+  # select(-"(Intercept)") |>
+  ggplot(aes(x = pred, y = var, fill = tval)) + 
+  geom_tile(colour="white", size = 0.25) +
+  labs(x = "", y = "", fill = expression(italic(t)-value)) +
+  # guides(fill = guide_legend(title = expression(italic(t)-value))) +
+  scale_y_discrete(expand = c(0, 0)) +
+  scale_x_discrete(expand = c(0, 0))+
+  scico::scale_fill_scico(palette = "vik") +
+  theme(
+    #set thickness of axis ticks
+    axis.ticks=element_line(size = 0.4),
+    #remove plot background
+    plot.background=element_blank(),
+    #remove plot border
+    panel.border=element_blank()
+  )
+
+ggsave(paste0(here::here(), "/fig/tvals_heatmap.pdf"), width = 6, height = 3)
+
+# df_tvals |> 
+#   filter(pred != "(Intercept)") |> 
+#   ggplot(aes(pred, pval)) +
+#   geom_bar(stat = "identity") +
+#   theme_classic() +
+#   coord_flip() +
+#   facet_wrap(~factor(var, levels = c("vcmax", "narea", "nmass", "lma"))) + 
+#   labs(y = expression(italic(p)-value))
+```
+
+Partial residual plots.
 ```{r}
 cowplot::plot_grid(gg_nmass_soilcn, gg_narea_soilcn, gg_vcmax_soilcn, ncol = 3)
 ggsave(paste0(here::here(), "/fig/leaf_cn_soil_field.pdf"), width = 9, height = 3)
@@ -469,7 +609,7 @@ ggsave(paste0(here::here(), "/fig/leafn_field.png"), width = 9, height = 6)
 
 #### Old predictors
 
-```{r}
+```{r eval=FALSE}
 # removed: mgdd0 (don't know what it is)
 linmod_vcmax <- lm(log_vcmax25_obs ~ lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
 linmod_narea <- lm(log_Narea ~       lnD  + lnppfd + alpha + gdday + soil_ph + CNrt + elv, data = df)
@@ -566,312 +706,312 @@ gg_vcmax_mod <- gg_vcmax_mod +
 ```
 
 
-## Ellsworth data
+<!-- ## Ellsworth data -->
 
-TO EXPLORE. BUT LOW PRIORITY.
+<!-- TO EXPLORE. BUT LOW PRIORITY. -->
 
-The data used here is this leaf photosynthetic traits and N dataset:
+<!-- The data used here is this leaf photosynthetic traits and N dataset: -->
 
-*Data reference*
+<!-- *Data reference* -->
 
-Ellsworth, David; Wright, Ian; Crous, Kristine Y.; Goll, Daniel S; Zaehle, Sönke; Cernusak, Lucas A.; et al. (2022): Convergence in phosphorus constraints to photosynthesis dataset. figshare. Dataset. https://doi.org/10.6084/m9.figshare.20010485.v1 
+<!-- Ellsworth, David; Wright, Ian; Crous, Kristine Y.; Goll, Daniel S; Zaehle, Sönke; Cernusak, Lucas A.; et al. (2022): Convergence in phosphorus constraints to photosynthesis dataset. figshare. Dataset. https://doi.org/10.6084/m9.figshare.20010485.v1  -->
 
-*Paper reference*
+<!-- *Paper reference* -->
 
-Ellsworth, D.S., Crous, K.Y., De Kauwe, M.G. et al. Convergence in phosphorus constraints to photosynthesis in forests around the world. Nat Commun 13, 5005 (2022). https://doi.org/10.1038/s41467-022-32545-0
+<!-- Ellsworth, D.S., Crous, K.Y., De Kauwe, M.G. et al. Convergence in phosphorus constraints to photosynthesis in forests around the world. Nat Commun 13, 5005 (2022). https://doi.org/10.1038/s41467-022-32545-0 -->
 
-```{r}
-df_ellsworth <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv")
-skim(df_ellsworth)
-```
+<!-- ```{r} -->
+<!-- df_ellsworth <- read_csv("~/data/leafnp_vcmax_ellsworth/Ellsworth_NCOMMS_Figure1and2_fulldata.csv") -->
+<!-- skim(df_ellsworth) -->
+<!-- ``` -->
 
-**Issues**
+<!-- **Issues** -->
 
-- No longitude and latitude information in this data. Beni will contact David Ellsworth to ask for the long and lat data.
+<!-- - No longitude and latitude information in this data. Beni will contact David Ellsworth to ask for the long and lat data. -->
 
-## TROBIT data
+<!-- ## TROBIT data -->
 
-```{r}
-df_trobit <- read_csv("~/data/leaf_traits/leaf_soil.csv")
-```
+<!-- ```{r} -->
+<!-- df_trobit <- read_csv("~/data/leaf_traits/leaf_soil.csv") -->
+<!-- ``` -->
 
-```{r}
-## 81 sites like this:
-df_sites_trobit <- df_trobit %>% 
-  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
-  distinct(site, .keep_all = TRUE)
-nrow(df_sites_trobit)
+<!-- ```{r} -->
+<!-- ## 81 sites like this: -->
+<!-- df_sites_trobit <- df_trobit %>%  -->
+<!--   select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>%  -->
+<!--   distinct(site, .keep_all = TRUE) -->
+<!-- nrow(df_sites_trobit) -->
 
-## 68 sites when using lon_2 and lat_2:
-df_sites_trobit_test <- df_trobit %>% 
-  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
-  distinct(lon_2, lat_2, .keep_all = TRUE)
-nrow(df_sites_trobit_test)
+<!-- ## 68 sites when using lon_2 and lat_2: -->
+<!-- df_sites_trobit_test <- df_trobit %>%  -->
+<!--   select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>%  -->
+<!--   distinct(lon_2, lat_2, .keep_all = TRUE) -->
+<!-- nrow(df_sites_trobit_test) -->
 
-## 89 sites when using lon_2, lat_2, and z (elevation):
-df_sites_trobit_test2 <- df_trobit %>% 
-  select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>% 
-  distinct(lon_2, lat_2, z, .keep_all = TRUE)
-nrow(df_sites_trobit_test2)
-```
+<!-- ## 89 sites when using lon_2, lat_2, and z (elevation): -->
+<!-- df_sites_trobit_test2 <- df_trobit %>%  -->
+<!--   select(site, lon, lat, lon_2, lat_2, z, species, Vcmax25, narea, lma, Jmax25, nmass) %>%  -->
+<!--   distinct(lon_2, lat_2, z, .keep_all = TRUE) -->
+<!-- nrow(df_sites_trobit_test2) -->
+<!-- ``` -->
 
-**Issues**
+<!-- **Issues** -->
 
-- When using rounded lon and lat to identify sites, their distinct elevation is not considered, When using `site` to identify site ID, there may still be entries taken from distinct elevations. But in general, elevational differences are small. Therefore use `site` for aggregation.
+<!-- - When using rounded lon and lat to identify sites, their distinct elevation is not considered, When using `site` to identify site ID, there may still be entries taken from distinct elevations. But in general, elevational differences are small. Therefore use `site` for aggregation. -->
 
-```{r}
-duplicated_sites <- df_sites_trobit_test2 %>% 
-  group_by(site) %>% 
-  summarise(n=n()) %>% 
-  filter(n>1) %>% 
-  pull(site)
+<!-- ```{r} -->
+<!-- duplicated_sites <- df_sites_trobit_test2 %>%  -->
+<!--   group_by(site) %>%  -->
+<!--   summarise(n=n()) %>%  -->
+<!--   filter(n>1) %>%  -->
+<!--   pull(site) -->
 
-## note differences in elevation (column z)
-df_sites_trobit_test2 %>% 
-  filter(site %in% duplicated_sites)
-```
-Aggregate by site (mean) and take log of variables.
-```{r}
-df_trobit_sitemean <- df_trobit %>% 
-  group_by(site) %>% 
-  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
+<!-- ## note differences in elevation (column z) -->
+<!-- df_sites_trobit_test2 %>%  -->
+<!--   filter(site %in% duplicated_sites) -->
+<!-- ``` -->
+<!-- Aggregate by site (mean) and take log of variables. -->
+<!-- ```{r} -->
+<!-- df_trobit_sitemean <- df_trobit %>%  -->
+<!--   group_by(site) %>%  -->
+<!--   summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE))) -->
 
-# log-transform
-df_trobit_sitemean <- df_trobit_sitemean %>% 
-  mutate(across(
-    c("Vcmax25", "Jmax25", "narea", "nmass", "leafCN", "lma"), 
-    .fns = log, 
-    .names = "log_{.col}")) %>% 
-  rename(sitename = site) # for later use in ingestr
-```
+<!-- # log-transform -->
+<!-- df_trobit_sitemean <- df_trobit_sitemean %>%  -->
+<!--   mutate(across( -->
+<!--     c("Vcmax25", "Jmax25", "narea", "nmass", "leafCN", "lma"),  -->
+<!--     .fns = log,  -->
+<!--     .names = "log_{.col}")) %>%  -->
+<!--   rename(sitename = site) # for later use in ingestr -->
+<!-- ``` -->
 
-### Analysis vs soil C:N
+<!-- ### Analysis vs soil C:N -->
 
-This uses observed soil C:N data. Do a simple regression (plotting against soil C:N), not controlling for other factors.
+<!-- This uses observed soil C:N data. Do a simple regression (plotting against soil C:N), not controlling for other factors. -->
 
-```{r, warning=FALSE}
-gg1 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_Vcmax25)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
+<!-- ```{r, warning=FALSE} -->
+<!-- gg1 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CN, log_Vcmax25)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
 
-gg2 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_narea)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
+<!-- gg2 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CN, log_narea)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
 
-gg3 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_nmass)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
+<!-- gg3 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CN, log_nmass)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
 
-gg4 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_leafCN)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
+<!-- gg4 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CN, log_leafCN)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
 
-gg5 <- df_trobit_sitemean %>% 
-  ggplot(aes(CN, log_lma)) +
-  geom_point() +
-  geom_smooth(color = "red", method = "lm") +
-  theme_classic()
+<!-- gg5 <- df_trobit_sitemean %>%  -->
+<!--   ggplot(aes(CN, log_lma)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(color = "red", method = "lm") + -->
+<!--   theme_classic() -->
 
-gg1 + gg2 + gg3 + gg4 + gg5
-```
-
-
-### Complement climate variables
-
-Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://geco-bern.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables:
-
-- growth temperature
-- growing season mean VPD
-- growing season mean PPFD
-- N deposition
-
-```{r}
-filn <- "../data/data_leafn_vcmax_trobit_ALTCLIM.csv"
-
-get_growingseasonmean <- function(df){
-  df |> 
-    filter(tgrowth > 0) |> 
-    ungroup() |> 
-    summarise(across(c(tgrowth, vpd, ppfd), mean))
-}
-
-kfFEC <- 2.04
- 
-if (!file.exists(filn)){
-  
-  ## Collect climatic variables from WorldClim----------------------------------  
-  df_sites <- df_trobit_sitemean %>% 
-    select(sitename, lon, lat, elv = z) %>% 
-    distinct() |> 
-    
-    ## at least one sitename is missing!
-    drop_na(sitename)
-
-  settings_wc <- list(varnam = c("tmin", "tmax", "vapr", "srad"))
-
-  ## collect WC data for idxs sites
-  df_wc <- ingest(
-    df_sites,
-    source    = "worldclim",
-    settings  = settings_wc,
-    dir       = "~/data/worldclim/"
-    )
-  
-  ## get growting-season means
-  df_wc <- df_wc |> 
-  
-    unnest(data) |> 
-  
-    ## add latitude
-    left_join(df_sites, by = "sitename") |> 
-    
-    ## vapour pressure kPa -> Pa
-    mutate(vapr = vapr * 1e3) |>
-    
-    ## PPFD from solar radiation: kJ m-2 day-1 -> mol m−2 s−1 PAR
-    mutate(ppfd = 1e3 * srad * kfFEC * 1.0e-6 / (60 * 60 * 24)) |>
-  
-    ## calculate VPD (Pa) based on tmin and tmax
-    rowwise() |> 
-    mutate(vpd = ingestr::calc_vpd(eact = vapr, tmin = tmin, tmax = tmax)) |> 
-    
-    ## calculate growth temperature (average daytime temperature)
-    mutate(doy = lubridate::yday(lubridate::ymd("2001-01-15") + months(month - 1))) |> 
-    mutate(tgrowth = ingestr::calc_tgrowth(tmin, tmax, lat, doy)) |> 
-    
-    ## average over growing season (where Tgrowth > 0 deg C)
-    group_by(sitename) |> 
-    nest() |> 
-    mutate(data_growingseason = purrr::map(data, ~get_growingseasonmean(.))) |> 
-    unnest(data_growingseason) |> 
-    select(-data)  
-  
-  ## Collect N deposition-------------------------------------------------------  
-  df_ndep <- ingest(
-                    df_sites |> 
-                      mutate(year_start = 1990, year_end = 2009),
-                    source    = "ndep",
-                    timescale = "y",
-                    dir       = "~/data/ndep_lamarque/",
-                    verbose   = FALSE
-                    ) |> 
-    unnest(cols = data) |> 
-    group_by(sitename) |> 
-    summarise(noy = mean(noy), nhx = mean(nhx)) |> 
-    mutate(ndep = noy + nhx) |> 
-    select(-noy, -nhx)
-  
-  ## Combine data---------------------------------------------------------------
-  df_trobit_sitemean <- df_trobit_sitemean %>% 
-    left_join(
-      df_wc,
-      by = "sitename"
-    ) |> 
-    left_join(
-      df_ndep,
-      by = "sitename"
-    )
-  
-  write_csv(df_trobit_sitemean, file = filn)  
-  
-} else {
-  df_trobit_sitemean <- read_csv(filn)
-}
-```
+<!-- gg1 + gg2 + gg3 + gg4 + gg5 -->
+<!-- ``` -->
 
 
-### Multivariate analysis
+<!-- ### Complement climate variables -->
 
-Missing: alpha
-```{r}
-df_trobit_sitemean <- df_trobit_sitemean |> 
-  mutate(log_vpd = log(vpd),
-         log_ndep = log(ndep))
+<!-- Several climatic variables are provided in the dataset. To make analyses at different levels consistent - using the same climate and soil data sources - we re-extract this information here following [this](https://geco-bern.github.io/ingestr/articles/collect_point_environment.html) *ingestr* workflow, collecting the following variables: -->
 
-# removed: mgdd0 (don't know what it is)
-linmod_vcmax <- lm(log_Vcmax25 ~     log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
-                   data = df_trobit_sitemean)
-linmod_narea <- lm(log_narea ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
-                   data = df_trobit_sitemean)
-linmod_nmass <- lm(log_nmass ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
-                   data = df_trobit_sitemean)
-linmod_lma   <- lm(log_lma ~         log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
-                   data = df_trobit_sitemean)
-linmod_cn   <- lm(log_leafCN ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep, 
-                   data = df_trobit_sitemean)
-```
+<!-- - growth temperature -->
+<!-- - growing season mean VPD -->
+<!-- - growing season mean PPFD -->
+<!-- - N deposition -->
 
-Partial relationship analysis with soil C:N.
-```{r}
-gg_vcmax <- visreg(linmod_vcmax, "CN", gg = TRUE)
-gg_narea <- visreg(linmod_narea, "CN", gg = TRUE)
-gg_nmass <- visreg(linmod_nmass, "CN", gg = TRUE)
-gg_lma   <- visreg(linmod_lma,   "CN", gg = TRUE)
-gg_cn   <- visreg(linmod_cn,     "CN", gg = TRUE)
+<!-- ```{r} -->
+<!-- filn <- "../data/data_leafn_vcmax_trobit_ALTCLIM.csv" -->
 
-gg_vcmax <- gg_vcmax +
-  theme_classic()
-gg_narea <- gg_narea +
-  theme_classic()
-gg_nmass <- gg_nmass +
-  theme_classic()
-gg_lma <- gg_lma +
-  theme_classic()
-gg_cn <- gg_cn +
-  theme_classic()
+<!-- get_growingseasonmean <- function(df){ -->
+<!--   df |>  -->
+<!--     filter(tgrowth > 0) |>  -->
+<!--     ungroup() |>  -->
+<!--     summarise(across(c(tgrowth, vpd, ppfd), mean)) -->
+<!-- } -->
 
-(gg_vcmax + gg_narea) /
-  (gg_nmass + gg_lma) / 
-  (gg_cn + gg_cn)
-```
+<!-- kfFEC <- 2.04 -->
 
-Partial relationship analysis with N deposition.
-```{r}
-gg_vcmax <- visreg(linmod_vcmax, "log_ndep", gg = TRUE)
-gg_narea <- visreg(linmod_narea, "log_ndep", gg = TRUE)
-gg_nmass <- visreg(linmod_nmass, "log_ndep", gg = TRUE)
-gg_lma   <- visreg(linmod_lma,   "log_ndep", gg = TRUE)
-gg_cn   <- visreg(linmod_cn,     "log_ndep", gg = TRUE)
+<!-- if (!file.exists(filn)){ -->
 
-gg_vcmax <- gg_vcmax +
-  theme_classic()
-gg_narea <- gg_narea +
-  theme_classic()
-gg_nmass <- gg_nmass +
-  theme_classic()
-gg_lma <- gg_lma +
-  theme_classic()
-gg_cn <- gg_cn +
-  theme_classic()
+<!--   ## Collect climatic variables from WorldClim----------------------------------   -->
+<!--   df_sites <- df_trobit_sitemean %>%  -->
+<!--     select(sitename, lon, lat, elv = z) %>%  -->
+<!--     distinct() |>  -->
 
-(gg_vcmax + gg_narea) /
-  (gg_nmass + gg_lma) / 
-  (gg_cn + gg_cn)
-```
+<!--     ## at least one sitename is missing! -->
+<!--     drop_na(sitename) -->
 
-## C:N by PFT
+<!--   settings_wc <- list(varnam = c("tmin", "tmax", "vapr", "srad")) -->
 
-*Paper reference*
+<!--   ## collect WC data for idxs sites -->
+<!--   df_wc <- ingest( -->
+<!--     df_sites, -->
+<!--     source    = "worldclim", -->
+<!--     settings  = settings_wc, -->
+<!--     dir       = "~/data/worldclim/" -->
+<!--     ) -->
 
-Kattge, J., Bönisch, G., Díaz, S., Lavorel, S., Prentice, I. C., Leadley, P., . . . Wirth, C. (2020). TRY plant trait database – enhanced coverage and open access. Global Change Biology, 26(1), 119-188. doi:10.1111/gcb.14904
+<!--   ## get growting-season means -->
+<!--   df_wc <- df_wc |>  -->
 
-```{r}
-df <- read_csv("~/scratch/try_kattge_2020/data_cn_pdf.csv")
-```
+<!--     unnest(data) |>  -->
 
-```{r}
-df |> 
-  ggplot(aes(PFTs, CN)) +
-  geom_boxplot(fill = "azure3") +
-  coord_flip() +
-  theme_classic() +
-  labs(x = "PFT", y = expression(paste("C:N"[leaf])))
-```
+<!--     ## add latitude -->
+<!--     left_join(df_sites, by = "sitename") |>  -->
+
+<!--     ## vapour pressure kPa -> Pa -->
+<!--     mutate(vapr = vapr * 1e3) |> -->
+
+<!--     ## PPFD from solar radiation: kJ m-2 day-1 -> mol m−2 s−1 PAR -->
+<!--     mutate(ppfd = 1e3 * srad * kfFEC * 1.0e-6 / (60 * 60 * 24)) |> -->
+
+<!--     ## calculate VPD (Pa) based on tmin and tmax -->
+<!--     rowwise() |>  -->
+<!--     mutate(vpd = ingestr::calc_vpd(eact = vapr, tmin = tmin, tmax = tmax)) |>  -->
+
+<!--     ## calculate growth temperature (average daytime temperature) -->
+<!--     mutate(doy = lubridate::yday(lubridate::ymd("2001-01-15") + months(month - 1))) |>  -->
+<!--     mutate(tgrowth = ingestr::calc_tgrowth(tmin, tmax, lat, doy)) |>  -->
+
+<!--     ## average over growing season (where Tgrowth > 0 deg C) -->
+<!--     group_by(sitename) |>  -->
+<!--     nest() |>  -->
+<!--     mutate(data_growingseason = purrr::map(data, ~get_growingseasonmean(.))) |>  -->
+<!--     unnest(data_growingseason) |>  -->
+<!--     select(-data)   -->
+
+<!--   ## Collect N deposition-------------------------------------------------------   -->
+<!--   df_ndep <- ingest( -->
+<!--                     df_sites |>  -->
+<!--                       mutate(year_start = 1990, year_end = 2009), -->
+<!--                     source    = "ndep", -->
+<!--                     timescale = "y", -->
+<!--                     dir       = "~/data/ndep_lamarque/", -->
+<!--                     verbose   = FALSE -->
+<!--                     ) |>  -->
+<!--     unnest(cols = data) |>  -->
+<!--     group_by(sitename) |>  -->
+<!--     summarise(noy = mean(noy), nhx = mean(nhx)) |>  -->
+<!--     mutate(ndep = noy + nhx) |>  -->
+<!--     select(-noy, -nhx) -->
+
+<!--   ## Combine data--------------------------------------------------------------- -->
+<!--   df_trobit_sitemean <- df_trobit_sitemean %>%  -->
+<!--     left_join( -->
+<!--       df_wc, -->
+<!--       by = "sitename" -->
+<!--     ) |>  -->
+<!--     left_join( -->
+<!--       df_ndep, -->
+<!--       by = "sitename" -->
+<!--     ) -->
+
+<!--   write_csv(df_trobit_sitemean, file = filn)   -->
+
+<!-- } else { -->
+<!--   df_trobit_sitemean <- read_csv(filn) -->
+<!-- } -->
+<!-- ``` -->
+
+
+<!-- ### Multivariate analysis -->
+
+<!-- Missing: alpha -->
+<!-- ```{r} -->
+<!-- df_trobit_sitemean <- df_trobit_sitemean |>  -->
+<!--   mutate(log_vpd = log(vpd), -->
+<!--          log_ndep = log(ndep)) -->
+
+<!-- # removed: mgdd0 (don't know what it is) -->
+<!-- linmod_vcmax <- lm(log_Vcmax25 ~     log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep,  -->
+<!--                    data = df_trobit_sitemean) -->
+<!-- linmod_narea <- lm(log_narea ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep,  -->
+<!--                    data = df_trobit_sitemean) -->
+<!-- linmod_nmass <- lm(log_nmass ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep,  -->
+<!--                    data = df_trobit_sitemean) -->
+<!-- linmod_lma   <- lm(log_lma ~         log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep,  -->
+<!--                    data = df_trobit_sitemean) -->
+<!-- linmod_cn   <- lm(log_leafCN ~       log_vpd  + ppfd + tgrowth + pH + CN + z + log_ndep,  -->
+<!--                    data = df_trobit_sitemean) -->
+<!-- ``` -->
+
+<!-- Partial relationship analysis with soil C:N. -->
+<!-- ```{r} -->
+<!-- gg_vcmax <- visreg(linmod_vcmax, "CN", gg = TRUE) -->
+<!-- gg_narea <- visreg(linmod_narea, "CN", gg = TRUE) -->
+<!-- gg_nmass <- visreg(linmod_nmass, "CN", gg = TRUE) -->
+<!-- gg_lma   <- visreg(linmod_lma,   "CN", gg = TRUE) -->
+<!-- gg_cn   <- visreg(linmod_cn,     "CN", gg = TRUE) -->
+
+<!-- gg_vcmax <- gg_vcmax + -->
+<!--   theme_classic() -->
+<!-- gg_narea <- gg_narea + -->
+<!--   theme_classic() -->
+<!-- gg_nmass <- gg_nmass + -->
+<!--   theme_classic() -->
+<!-- gg_lma <- gg_lma + -->
+<!--   theme_classic() -->
+<!-- gg_cn <- gg_cn + -->
+<!--   theme_classic() -->
+
+<!-- (gg_vcmax + gg_narea) / -->
+<!--   (gg_nmass + gg_lma) /  -->
+<!--   (gg_cn + gg_cn) -->
+<!-- ``` -->
+
+<!-- Partial relationship analysis with N deposition. -->
+<!-- ```{r} -->
+<!-- gg_vcmax <- visreg(linmod_vcmax, "log_ndep", gg = TRUE) -->
+<!-- gg_narea <- visreg(linmod_narea, "log_ndep", gg = TRUE) -->
+<!-- gg_nmass <- visreg(linmod_nmass, "log_ndep", gg = TRUE) -->
+<!-- gg_lma   <- visreg(linmod_lma,   "log_ndep", gg = TRUE) -->
+<!-- gg_cn    <- visreg(linmod_cn,    "log_ndep", gg = TRUE) -->
+
+<!-- gg_vcmax <- gg_vcmax + -->
+<!--   theme_classic() -->
+<!-- gg_narea <- gg_narea + -->
+<!--   theme_classic() -->
+<!-- gg_nmass <- gg_nmass + -->
+<!--   theme_classic() -->
+<!-- gg_lma <- gg_lma + -->
+<!--   theme_classic() -->
+<!-- gg_cn <- gg_cn + -->
+<!--   theme_classic() -->
+
+<!-- (gg_vcmax + gg_narea) / -->
+<!--   (gg_nmass + gg_lma) /  -->
+<!--   (gg_cn + gg_cn) -->
+<!-- ``` -->
+
+<!-- ## C:N by PFT -->
+
+<!-- *Paper reference* -->
+
+<!-- Kattge, J., Bönisch, G., Díaz, S., Lavorel, S., Prentice, I. C., Leadley, P., . . . Wirth, C. (2020). TRY plant trait database – enhanced coverage and open access. Global Change Biology, 26(1), 119-188. doi:10.1111/gcb.14904 -->
+
+<!-- ```{r} -->
+<!-- df <- read_csv("~/scratch/try_kattge_2020/data_cn_pdf.csv") -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- df |>  -->
+<!--   ggplot(aes(PFTs, CN)) + -->
+<!--   geom_boxplot(fill = "azure3") + -->
+<!--   coord_flip() + -->
+<!--   theme_classic() + -->
+<!--   labs(x = "PFT", y = expression(paste("C:N"[leaf]))) -->
+<!-- ``` -->

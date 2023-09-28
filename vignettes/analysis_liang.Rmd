@@ -97,7 +97,7 @@ df <- df |>
 ```
 
 Distribution of N treatment level
-```{r}
+```{r eval=FALSE}
 ggplot(data = df,
        aes(x = ndep_kg_ha_yr, y = ..density.., fill = nfert_lev)) +
   geom_histogram()
@@ -321,8 +321,8 @@ gg_nfert_liang <- ggplot(data = df_plot,
 saveRDS(gg_nfert_liang, file = paste0(here::here(), "/data/gg_nfert_liang.rds"))
 
 gg_nfert_liang
-ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.pdf"), width = 8, height = 6)
-ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.png"), width = 8, height = 6)
+ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.pdf"), width = 6, height = 4)
+ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.png"), width = 6, height = 4)
 
 ```
 
@@ -384,7 +384,7 @@ gg_nfert_liang_nfert <- ggplot() +
                  ) +
   geom_hline( yintercept = 0.0, size = 0.5) +
   coord_flip() +
-  scale_x_discrete("", labels = mylabl) +
+  # scale_x_discrete("", labels = mylabl) +
   scale_fill_viridis_d(name = "Fertilisation \nlevel", labels = c("low", "mid", "high")) +
   scale_x_discrete("", labels = rev(mylabs)) +
   labs(title = "Response to N-fertilisation",
