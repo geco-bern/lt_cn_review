@@ -1,0 +1,288 @@
+---
+title: "Simulations with cnmodel"
+author: "Beni Stocker"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    #theme: paper
+    toc: true
+    toc_float: true
+    toc_depth: 2
+# output:
+#   pdf_document:
+#     toc: true
+#     toc_depth: 2
+header-includes:
+   - \usepackage{amsmath}
+# bibliography: bibliography.bib
+---
+
+```{r, warning=FALSE}
+library(rsofun)      # make sure to build the cnmodel branch!
+library(dplyr)   # for working with ease
+library(tidyr)   # for working with ease
+library(metafor)     # for meta analysis
+library(MAd)         # for meta analysis
+library(patchwork)
+library(lubridate)
+```
+
+
+# CO2 manipulation
+
+## Model parameters
+
+```{r message=FALSE}
+pars <- list(
+
+  # P-model
+  kphio                 = 0.04607080,
+  soilm_par_a           = 2.75687824,
+  soilm_par_b           = 1.68140444,
+  tau_acclim_tempstress = 7.35259044,
+  par_shape_tempstress  = 0.09863961,
+
+  # Plant
+  f_nretain             = 0.500000,
+  fpc_tree_max          = 0.950000,
+  growtheff             = 0.600000,
+  r_root                = 2*0.913000,
+  r_sapw                = 2*0.044000,
+  exurate               = 0.003000,
+  
+  k_decay_leaf_base     = 1.00000,
+  k_decay_leaf_width    = 2.00000,
+  k_decay_root          = 1.00000,
+  k_decay_labl          = 0.00000,
+  k_decay_sapw          = 1.00000,
+  
+  r_cton_root           = 37.0000,
+  r_cton_wood           = 100.000,
+  ncw_min               = 0.056,
+  r_n_cw_v              = 0.4,
+  r_ctostructn_leaf     = 35.0000,
+  kbeer                 = 0.500000,
+
+  # Phenology (should be PFT-specific)
+  gddbase               = 5.0,
+  ramp                  = 0.0,
+  phentype              = 2.0,
+
+  # Soil physics (should be derived from params_soil, fsand, fclay, forg, fgravel)
+  perc_k1               = 5.0,        
+  thdiff_wp             = 0.2,          
+  thdiff_whc15          = 0.8,
+  thdiff_fc             = 0.4,          
+  forg                  = 0.01,
+  wbwp                  = 0.029,  
+  por                   = 0.421,    
+  fsand                 = 0.82,      
+  fclay                 = 0.06,      
+  fsilt                 = 0.12,  
+
+  # Water and energy balance
+  kA                    = 107,     
+  kalb_sw               = 0.17,    
+  kalb_vis              = 0.03,    
+  kb                    = 0.20,    
+  kc                    = 0.25,    
+  kCw                   = 1.05,    
+  kd                    = 0.50,    
+  ke                    = 0.0167,  
+  keps                  = 23.44,   
+  kWm                   = 220.0,   
+  kw                    = 0.26,    
+  komega                = 283.0,
+  maxmeltrate           = 3.0,
+
+  # Soil BGC
+  klitt_af10            = 1.2,
+  klitt_as10            = 0.35,
+  klitt_bg10            = 0.35,
+  kexu10                = 50.0,
+  ksoil_fs10            = 0.021,
+  ksoil_sl10            = 7.0e-04,
+  ntoc_crit1            = 0.45,
+  ntoc_crit2            = 0.76,
+  cton_microb           = 10.0,
+  cton_soil             = 9.77,
+  fastfrac              = 0.985,
+
+  # N uptake
+  # eff_nup               = 0.600000,  # original value
+  eff_nup               = 0.005000,
+  minimumcostfix        = 1.000000,
+  fixoptimum            = 25.15000,
+  a_param_fix           = -3.62000,
+  b_param_fix           = 0.270000,
+
+  # Inorganic N transformations
+  maxnitr               = 0.1,
+  non                   = 0.01,
+  n2on                  = 0.0005,
+  kn                    = 83.0,
+  kdoc                  = 17.0,
+  docmax                = 1.0,
+  dnitr2n2o             = 0.01,
+  
+  # Additional parameters - previously forgotten
+  beta                  = 146.000000,
+  rd_to_vcmax           = 0.01400000,
+  tau_acclim            = 10,
+
+  # for development
+  tmppar                = 9999
+
+  )
+```
+
+## Simulation parameters
+
+```{r}
+tmp$params_siml[[1]]$spinupyears <- 2000
+tmp$params_siml[[1]]$recycle <- 5
+```
+
+## Forcing
+
+Some atmospheric N deposition.
+```{r}
+tmp <- rsofun::p_model_drivers |> 
+  mutate(forcing = purrr::map(forcing, ~mutate(., 
+                                               fharv = 0.0,
+                                               dno3 = 0.1,
+                                               dnh4 = 0.1
+                                               )))
+```
+
+Harvesting and seed input to zero.
+```{r}
+use_cseed <- 0 # 100
+cn_seed <- 20
+use_nseed <- use_cseed / cn_seed
+
+tmp$forcing[[1]] <- tmp$forcing[[1]] |>
+  mutate(fharv = ifelse(month(date) == 7 & mday(date) == 15, 0.0, 0.0),
+         cseed = ifelse(month(date) == 3 & mday(date) == 15, use_cseed, 0.0),
+         nseed = ifelse(month(date) == 3 & mday(date) == 15, use_nseed, 0.0))
+```
+
+Synthetic forcing: Constant climate in all days.
+```{r}
+df_growingseason_mean <- tmp$forcing[[1]] |>
+  filter(temp > 5) |>
+  summarise(across(where(is.double), .fns = mean))
+df_mean <- tmp$forcing[[1]] |>
+  summarise(across(where(is.double), .fns = mean))
+
+tmp$forcing[[1]] <- tmp$forcing[[1]] |>
+  mutate(temp = df_growingseason_mean$temp,
+         prec = df_mean$prec,
+         vpd = df_growingseason_mean$vpd,
+         ppfd = df_mean$ppfd,
+         patm = df_growingseason_mean$patm,
+         ccov_int = df_growingseason_mean$ccov_int,
+         ccov = df_growingseason_mean$ccov,
+         snow = df_mean$snow,
+         rain = df_mean$rain,
+         fapar = df_mean$fapar,
+         co2 = df_growingseason_mean$co2,
+         tmin = df_growingseason_mean$tmin,
+         tmax = df_growingseason_mean$tmax,
+  )
+```
+
+Double CO2 from 2010 onwards.
+```{r}
+tmp$forcing[[1]] <- tmp$forcing[[1]] |>
+  mutate(co2 = ifelse(year(date) >= 2010, co2 * 2, co2))
+```
+
+Repeat last year's forcing N times to investigate multi-decadal dynamics.
+```{r}
+n_ext <- 100
+for (idx in seq(n_ext)){
+  tmp$forcing[[1]] <- bind_rows(
+    tmp$forcing[[1]],
+    tmp$forcing[[1]] |> 
+      tail(365) |> 
+      mutate(date = date + years(idx))
+  )
+}
+tmp$params_siml[[1]]$nyeartrend <- tmp$params_siml[[1]]$nyeartrend + n_ext
+```
+
+
+# Model run
+
+```{r}
+output <- runread_pmodel_f(
+  tmp,
+  par = pars
+  )
+
+output <- output$data[[1]]
+```
+
+# Visualisations
+
+## Response ratios
+
+Rearrange outputs to get response ratios.
+```{r}
+df_out <- output |> 
+  mutate(leaf_cn = cleaf/nleaf, root_shoot_ratio = croot/cleaf, n_inorg = pno3 + pnh4) |> 
+  select(date, gpp, vcmax, jmax, gs = gs_accl, leaf_cn, lai, agb = cleaf, 
+         bgb = croot, root_shoot_ratio, nup, n_inorg, n_uptake = nup)
+  
+df_amb <- df_out |> 
+  filter(year(date) < 2010) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_ele <- df_out |> 
+  filter(year(date) %in% 2010:2012) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_ele2 <- df_out |> 
+  filter(year(date) %in% 2100:2107) |> 
+  summarise(across(where(is.numeric), mean))
+
+df_exp <- bind_rows(df_amb, df_ele)
+df_rr  <- log(df_exp[2,]/df_exp[1,]) |> 
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "response") |> 
+  mutate(variable = factor(variable, 
+                          levels = rev(c("gpp", "vcmax", "jmax", "gs", "leaf_cn", "lai", "agb", 
+                                       "bgb", "root_shoot_ratio", "n_uptake", "n_inorg"))))
+
+df_exp2 <- bind_rows(df_amb, df_ele2)
+df_rr2  <- log(df_exp2[2,]/df_exp2[1,]) |> 
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "response") |> 
+  mutate(variable = factor(variable, 
+                           levels = rev(c("gpp", "vcmax", "jmax", "gs", "leaf_cn", "lai", "agb", 
+                                       "bgb", "root_shoot_ratio", "n_uptake", "n_inorg"))))
+```
+
+Plot model results on top of meta-analysis results from MESI.
+```{r}
+df_box <- readRDS("../data/df_box_mesi_co2.rds")
+ggplot() +
+  geom_crossbar( aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+                 data = df_box |> 
+                   mutate(var = factor(var, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n", 
+                                                           "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", 
+                                                           "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))),
+                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 
+                 ) +
+  geom_point(aes(var, response), 
+             data = df_rr2 |> 
+               rename(var = variable) |> 
+               mutate(var = factor(var, levels = rev(c("asat", "gpp", "vcmax", "jmax", "gs", "leaf_n", 
+                                                       "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", 
+                                                       "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))), 
+             size = 3, color = "royalblue") +
+  geom_hline( yintercept = 0.0, size = 0.5 ) +
+  labs(x = "Variable", y = "Log Response Ratio", size = expression(paste("Error"^{-1}))) +
+  coord_flip() +
+  ylim(-1, 1) +
+  labs(title = "cnmodel vs. MESI", subtitle = "Response to eCO2")
+```
