@@ -86,15 +86,16 @@ pars <- list(
   fastfrac              = 0.985,
   
   # N uptake
-  # eff_nup               = 0.600000,  # original value
-  eff_nup               = 0.005000,
+  eff_nup               = 0.0001000,
   minimumcostfix        = 1.000000,
   fixoptimum            = 25.15000,
   a_param_fix           = -3.62000,
   b_param_fix           = 0.270000,
   
-  # Inorganic N transformations
-  maxnitr               = 0.1,
+  # Inorganic N transformations (re-interpreted for simple ntransform model)
+  maxnitr               =  0.0001,
+  
+  # Inorganic N transformations for full ntransform model (not used in simple model)
   non                   = 0.01,
   n2on                  = 0.0005,
   kn                    = 83.0,
@@ -113,19 +114,42 @@ pars <- list(
   # simple N uptake module parameters
   nuptake_kc            = 250,
   nuptake_kv            = 5,
-  nuptake_vmax          = 0.2
+  nuptake_vmax          = 0.15
   
 )
 
 
 ## Forcing ------------------------
-## add new required columns to forcing 
+## Get N deposition data for locations of experiments
+# df_sites <- readRDS(paste0(here::here(), "/data/sites_mesi.rds"))
+# df_ndep <- ingestr::ingest(df_sites |> 
+#                              rename(sitename = site) |> 
+#                              mutate(year_start = 1990, year_end = 2009),
+#                            source    = "ndep",
+#                            timescale = "y",
+#                            dir       = "~/data/ndep_lamarque/",
+#                            verbose   = FALSE) |> 
+#   unnest(cols = data) |> 
+#   group_by(sitename) |> 
+#   summarise(noy = mean(noy), nhx = mean(nhx))
+# 
+# df_ndep |> 
+#   ggplot() +
+#   geom_histogram(aes(x = noy), color = "tomato", alpha = 0.3) +
+#   geom_histogram(aes(x = nhx), color = "royalblue", alpha = 0.3)
+# 
+# median(df_ndep$noy) # this is 0.6041753 gN m−2 yr−1
+# median(df_ndep$nhx) # this is 0.5094327 gN m−2 yr−1
+
 tmp <- rsofun::p_model_drivers |> 
   mutate(forcing = purrr::map(forcing, ~mutate(., 
                                                fharv = 0.0,
-                                               dno3 = 0.1,
-                                               dnh4 = 0.1
+                                               dno3 = 0.0016, # 0.6 / 365,
+                                               dnh4 = 0.0014, # 0.5 / 365
   )))
+
+## no soil moisture stress
+tmp$params_siml[[1]]$soilmstress <- FALSE
 
 ### Harvesting and seed input ----------
 use_cseed <- 0 # 100
@@ -145,7 +169,6 @@ tmp$forcing[[1]] |>
 ## no spinup, 1 year transient run
 tmp$params_siml[[1]]$spinupyears <- 2000
 tmp$params_siml[[1]]$recycle <- 5
-
 
 ## Synthetic forcing: Constant climate in all days -----------------------
 df_growingseason_mean <- tmp$forcing[[1]] |>
@@ -170,7 +193,7 @@ tmp$forcing[[1]] <- tmp$forcing[[1]] |>
          tmax = df_growingseason_mean$tmax,
   )
 
-##  repeat last year's forcing N times -----------------------
+## Repeat last year's forcing N times -----------------------
 n_ext <- 100
 df_tmp <- tmp$forcing[[1]]
 for (idx in seq(n_ext)){
@@ -185,7 +208,9 @@ tmp$params_siml[[1]]$nyeartrend <- tmp$params_siml[[1]]$nyeartrend + n_ext
 tmp$forcing[[1]] <- df_tmp
 
 
-## increase Ndep from 2010 -----------------------
+## increase Ndep -----------------------
+## from 2010 to 120 kg ha-1 yr-1 = 12 g m-2 yr-1 = 0.03287671 g m-2 d-1
+## this corresponds to an average rate of fertilisation in Liang et al experiments
 elevate_ndep <- function(day){
   yy <- 1 - 1 / (1 + exp(0.03*(day-14610)))
   return(yy)
@@ -198,15 +223,15 @@ ggplot() +
 
 tmp$forcing[[1]] <- tmp$forcing[[1]] |>
   mutate(date2 = as.numeric(date)) |>
-  mutate(dno3 = dno3 + 1.0 * elevate_ndep(date2),
-         dnh4 = dnh4 + 1.0 * elevate_ndep(date2)) |>
+  mutate(dno3 = dno3 + 0.03287671/2 * elevate_ndep(date2),
+         dnh4 = dnh4 + 0.03287671/2 * elevate_ndep(date2)) |>
   select(-date2)
 
 tmp$forcing[[1]] |>
   head(3000) |>
   ggplot(aes(date, dno3 + dnh4)) +
-  geom_line()
-
+  geom_line() +
+  ylim(0, NA)
 
 ## Model run ------------------------
 output <- runread_pmodel_f(

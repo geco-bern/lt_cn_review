@@ -86,15 +86,16 @@ pars <- list(
   fastfrac              = 0.985,
   
   # N uptake
-  # eff_nup               = 0.600000,  # original value
-  eff_nup               = 0.005000,
+  eff_nup               = 0.0001000,
   minimumcostfix        = 1.000000,
   fixoptimum            = 25.15000,
   a_param_fix           = -3.62000,
   b_param_fix           = 0.270000,
   
-  # Inorganic N transformations
-  maxnitr               = 0.1,
+  # Inorganic N transformations (re-interpreted for simple ntransform model)
+  maxnitr               =  0.00001,
+  
+  # Inorganic N transformations for full ntransform model (not used in simple model)
   non                   = 0.01,
   n2on                  = 0.0005,
   kn                    = 83.0,
@@ -113,7 +114,7 @@ pars <- list(
   # simple N uptake module parameters
   nuptake_kc            = 250,
   nuptake_kv            = 5,
-  nuptake_vmax          = 0.2
+  nuptake_vmax          = 0.13
   
 )
 
@@ -122,8 +123,8 @@ pars <- list(
 tmp <- rsofun::p_model_drivers |> 
   mutate(forcing = purrr::map(forcing, ~mutate(., 
                                                fharv = 0.0,
-                                               dno3 = 0.1,
-                                               dnh4 = 0.1
+                                               dno3 = 0.0016, # 0.6 / 365,
+                                               dnh4 = 0.0014, # 0.5 / 365
   )))
 
 ## no soil moisture stress
@@ -293,8 +294,6 @@ gg16 <- output |>
   geom_line()
 
 gg13 / gg14 / gg15 / gg16
-
-# xxx nloss/nup seems way too high and Ninorg is oscillating
 
 
 ### Response ratios ---------------------------

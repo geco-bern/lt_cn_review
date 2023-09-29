@@ -535,7 +535,7 @@ var_labeller <- function(variable, value){
 
 df_tvals |> 
   filter(pred != "(Intercept)") |> 
-  ggplot(aes(pred, tval, fill = is_significant)) +
+  ggplot(aes(pred, tval)) +
   geom_hline(yintercept = 0, color = "grey70") +
   geom_bar(stat = "identity") +
   theme_classic() +

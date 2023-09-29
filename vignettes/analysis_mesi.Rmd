@@ -109,7 +109,6 @@ df1 <- df0
 
 - No data available for Narea (-> KEVIN)
 
-  
 ```{r}
 ## create own variable names (myvar), grouping available variables (removed "gs")
 use_response <- c("asat", "vcmax", "jmax", "gpp", "leaf_n_area", "leaf_n_mass", "leaf_cn", "anpp", "agb", "leaf_biomass", "lai", "lai_max", "leaf_area", "bgb", "fine_root_biomass", "root_production", "fine_root_production", "root_shoot_ratio", "soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3", "root_n_uptake", "root_nh4_uptake", "root_no3_uptake")
@@ -292,6 +291,18 @@ df5 %>%
   summarise(n_plots = sum(rep_c), n_exp = n()) %>% 
   rename_("Variable"="myvar", "N plots"="n_plots", "N experiments"="n_exp") %>% 
   knitr::kable()
+```
+
+Available experiments by variable
+```{r}
+sites_mesi <- df |> 
+  select(exp, citation, site, lat, lon) |> 
+  distinct() |> 
+  filter(exp %in% unique(df5$exp)) |> 
+  group_by(site, lon, lat) |> 
+  summarise(citation = list(citation))
+
+saveRDS(sites_mesi, file = paste0(here::here(), "/data/sites_mesi.rds"))
 ```
 
 Available experiments for root:shoot ratio
@@ -608,6 +619,7 @@ df0 <- df |>
 
 Classify into N-fertilisation levels (l1, l2, l3).
 ```{r}
+
 # df0 <- df0 |> 
 #   mutate(nfert_lev = ifelse(n_t < 5, "f1",
 #                             ifelse(n_t < 10, "f2",
