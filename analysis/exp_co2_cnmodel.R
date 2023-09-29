@@ -93,7 +93,7 @@ pars <- list(
   b_param_fix           = 0.270000,
   
   # Inorganic N transformations (re-interpreted for simple ntransform model)
-  maxnitr               =  0.00001,
+  maxnitr               =  0.000005,
   
   # Inorganic N transformations for full ntransform model (not used in simple model)
   non                   = 0.01,
@@ -114,7 +114,7 @@ pars <- list(
   # simple N uptake module parameters
   nuptake_kc            = 250,
   nuptake_kv            = 5,
-  nuptake_vmax          = 0.13
+  nuptake_vmax          = 0.15
   
 )
 
