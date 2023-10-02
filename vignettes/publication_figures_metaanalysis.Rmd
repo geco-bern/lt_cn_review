@@ -8,32 +8,41 @@ output: html_document
 ## Load data
 
 ```{r}
+# Produced by vignettes/analysis_mesi.Rmd
 gg_eco2_mesi <- readRDS(file = paste0(here::here(), "/data/gg_eco2_mesi.rds"))
 gg_nfert_mesi <- readRDS(file = paste0(here::here(), "/data/gg_nfert_mesi.rds"))
-gg_nfert_liang <- readRDS(file = paste0(here::here(), "/data/gg_nfert_liang.rds"))
-
 gg_eco2_cpl_agb_bgb_mesi <- readRDS(file = paste0(here::here(), "/data/gg_eco2_cpl_agb_bgb_mesi.rds"))
 gg_nfert_cpl_agb_bgb_mesi <- readRDS(file = paste0(here::here(), "/data/gg_nfert_cpl_agb_bgb_mesi.rds"))
+
+# Produced by vignettes/analysis_liang.Rmd
+gg_nfert_liang <- readRDS(file = paste0(here::here(), "/data/gg_nfert_liang.rds"))
+
+# Produced by vignettes/Nfert_merge_MESI_NutNet_eperkowski.Rmd
+gg_nfert_mesinutnet <- readRDS(file = paste0(here::here(), "/data/gg_nfert_mesinutnet.rds"))
+gg_nfert_cpl_agb_bgb_mesinutnet <- readRDS(file = paste0(here::here(), "/data/gg_nfert_cpl_agb_bgb_mesinutnet.rds"))
 ```
 
 ## Combined
 
 ```{r}
-# cowplot::plot_grid(gg_eco2_mesi, gg_eco2_cpl_agb_bgb_mesi, 
-#                    gg_nfert_mesi, gg_nfert_cpl_agb_bgb_mesi, 
-#                    rel_widths = c(1, 0.6), 
-#                    labels = c("a", "b", "c", "d"))
-
-bottomrow <- cowplot::plot_grid(gg_eco2_cpl_agb_bgb_mesi, gg_nfert_cpl_agb_bgb_mesi, labels = c("d", "e"))
-
-cowplot::plot_grid(gg_eco2_mesi, 
-                   gg_nfert_mesi, 
-                   gg_nfert_liang,
-                   bottomrow,
-                   rel_heights = c(1, 0.6, 0.5, 0.7), 
-                   labels = c("a", "b", "c", ""),
+# combined meta-analysis plot
+cowplot::plot_grid(gg_nfert_liang,
+                   gg_nfert_mesinutnet,
+                   gg_eco2_mesi, 
+                   rel_heights = c(0.42, 0.52, 0.8), 
+                   labels = c("a", "b", "c"),
                    ncol = 1)
 
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis.pdf"), width = 8, height = 16)
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis.png"), width = 8, height = 16)
+ggsave(paste0(here::here(), "/fig/combined_metaanalysis.pdf"), width = 8, height = 11)
+ggsave(paste0(here::here(), "/fig/combined_metaanalysis.png"), width = 8, height = 11)
+
+
+# couplings of AGB and BGB
+cowplot::plot_grid(gg_eco2_cpl_agb_bgb_mesi, 
+                   gg_nfert_cpl_agb_bgb_mesinutnet,
+                   ncol = 2,
+                   labels = c("a", "b"))
+
+ggsave(paste0(here::here(), "/fig/combined_metaanalysis_couplings.pdf"), width = 10, height = 5)
+ggsave(paste0(here::here(), "/fig/combined_metaanalysis_couplings.png"), width = 10, height = 5)
 ```

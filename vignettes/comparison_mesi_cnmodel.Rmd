@@ -140,11 +140,22 @@ gg_mesi_cnmodel_eco2 <- df_box_co2 |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "#777055ff", color = "black", alpha = .5, width = 0.5 
-                 ) +
-  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
+                fill = "#777055ff", 
+                color = "black", 
+                alpha = .5, 
+                width = 0.5 
+                ) +
+  geom_point(aes(x = var, y = logrr_cnmodel), 
+             size = 5, 
+             shape = 21, 
+             color = "black", 
+             fill = "#29a274ff" 
+             ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "Variable", y = "Normalised log response ratio", title = expression(paste("Response to eCO"[2]))) +
+  labs(x = "Variable", 
+       y = "Normalised log response ratio", 
+       title = expression(paste("Response to eCO"[2])),
+       subltitle = "MESI data and cnodel") +
   scale_x_discrete("", labels = mylabl) +
   coord_flip()
 
@@ -159,7 +170,7 @@ Load CO2 meta-analysis results from MESI (produced with `vignettes/analysis_mesi
 df_box_nfert_mesi <- read_rds(paste0(here::here(), "/data/df_box_mesi_nfert.rds"))
 
 # read and change variable names to match with cnmodel output
-df_box_nfert_liang <- read_rds(paste0(here::here(), "/data/df_boxb_liang_nfert.rds")) |> 
+df_box_nfert_liang <- read_rds(paste0(here::here(), "/data/df_box_liang_nfert.rds")) |> 
   mutate(var = ifelse(var == "Vcmax", "vcmax",
                       ifelse(var == "Narea", "narea",
                              ifelse(var == "Nmass", "nmass",
@@ -177,7 +188,7 @@ years_after  <- 2015:2025
 
 df_cnmodel_nfert_before <- df_cnmodel_nfert |> 
   mutate(root_shoot_ratio = croot / cleaf,
-         leaf_n_mass = narea/lma,
+         nmass = narea/lma,
          leaf_cn = cleaf / nleaf) |> 
   mutate(year = lubridate::year(date)) |> 
   filter(year %in% years_before) |> 
@@ -185,7 +196,7 @@ df_cnmodel_nfert_before <- df_cnmodel_nfert |>
 
 df_cnmodel_nfert_after <- df_cnmodel_nfert |> 
   mutate(root_shoot_ratio = croot / cleaf,
-         leaf_n_mass = narea/lma,
+         nmass = narea/lma,
          leaf_cn = cleaf / nleaf) |> 
   mutate(year = lubridate::year(date)) |> 
   filter(year %in% years_after) |> 
@@ -196,7 +207,7 @@ df_cnmodel_nfert_logresponse <-
   mutate(agb = cleaf,
          anpp = npp_leaf,
          root_production = npp_root) |> 
-  rename(n_uptake = nup, agb = cleaf, bgb = croot, leaf_n_area = narea, 
+  rename(n_uptake = nup, agb = cleaf, bgb = croot,
          n_inorg = ninorg, gs = gs_accl, leaf_biomass = cleaf) |> 
   pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
 ```
@@ -231,13 +242,24 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_mesi |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "#777055ff", color = "black", alpha = 0.6, width = 0.5 
-                 ) +
-  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
+                fill = "#777055ff", 
+                color = "black", 
+                alpha = 0.6,
+                width = 0.5 
+                ) +
+  geom_point(aes(x = var, y = logrr_cnmodel), 
+             size = 5, 
+             shape = 21, 
+             color = "black", 
+             fill = "#29a274ff" 
+             ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "", y = "Normalised log response ratio", title = "Response to N-fertilization") +
-  scale_x_discrete("", labels = mylabl) +
-  coord_flip()
+  labs(x = "", 
+       y = "Normalised log response ratio",
+       title = "Response to N-fertilization",
+       subtitle = "MESI data and cnmodel") +
+  coord_flip() +
+  scale_x_discrete("", labels = mylabl)
 
   # ggplot() +
   # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -267,12 +289,12 @@ mylabl = rev(c(
     expression(paste(italic(V)[cmax])),
     expression(paste(italic(N)[area])),
     expression(paste(italic(N)[mass])),
-    "LAI",
-    "Leaf biomass"
+    "LAI"
   ))
 
 gg_mesi_cnmodel_nfert <- df_box_nfert_liang |> 
-  left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
+  left_join(df_cnmodel_nfert_logresponse, 
+            by = "var") |> 
   
   ## give it a nice order (for plotting)
   filter(var %in% var_order) |> 
@@ -280,13 +302,25 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_liang |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "#777055ff", color = "black", alpha = 0.6, width = 0.5 
+                 fill = "#777055ff", 
+                color = "black", 
+                alpha = 0.6, 
+                width = 0.5 
                  ) +
-  geom_point(aes(x = var, y = logrr_cnmodel), size = 5, shape = 21, color = "black", fill = "#29a274ff" ) +
-  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "", y = "Normalised log response ratio", title = "Response to N-fertilization") +
-  scale_x_discrete("", labels = mylabl) +
-  coord_flip()
+  geom_point(aes(x = var, y = logrr_cnmodel), 
+             size = 5, 
+             shape = 21, 
+             color = "black", 
+             fill = "#29a274ff" ) +
+  geom_hline( yintercept = 0.0, 
+              size = 0.5, 
+              linetype = "dotted") +
+  labs(x = "", 
+       y = "Normalised log response ratio", 
+       title = "Response to N-fertilization",
+       subtitle = "Liang et al. data and cnmodel") +
+  coord_flip() +
+  scale_x_discrete("", labels = mylabl)
 
   # ggplot() +
   # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -300,7 +334,7 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_liang |>
   # labs(title = "MESI data", subtitle = "Response to N-fertilization")
 
 gg_mesi_cnmodel_nfert
-ggsave("../fig/mesi_cnmodel_nfert.pdf")
+ggsave("../fig/liang_cnmodel_nfert.pdf")
 ```
 
 ## Publication figure

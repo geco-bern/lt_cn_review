@@ -39,6 +39,8 @@ Load and interpret MESI data files.
 #                    units = units
 #                    )
 # df <- read_csv("~/mesi-db_test/data/mesi_main.csv", col_names = col_names, skip = 2)
+
+# read data available from https://github.com/MESI-organization/mesi-db
 df <- read_csv("~/mesi-db_test/data/mesi_main.csv")
 ```
 
@@ -111,7 +113,34 @@ df1 <- df0
 
 ```{r}
 ## create own variable names (myvar), grouping available variables (removed "gs")
-use_response <- c("asat", "vcmax", "jmax", "gpp", "leaf_n_area", "leaf_n_mass", "leaf_cn", "anpp", "agb", "leaf_biomass", "lai", "lai_max", "leaf_area", "bgb", "fine_root_biomass", "root_production", "fine_root_production", "root_shoot_ratio", "soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3", "root_n_uptake", "root_nh4_uptake", "root_no3_uptake")
+use_response <- c("asat", 
+                  "vcmax", 
+                  "jmax", 
+                  "gpp", 
+                  "leaf_n_area", 
+                  "leaf_n_mass", 
+                  "leaf_cn", 
+                  "anpp", 
+                  "agb", 
+                  # "leaf_biomass", 
+                  "lai", 
+                  "lai_max", 
+                  # "leaf_area", 
+                  "bgb", 
+                  "fine_root_biomass", 
+                  "root_production", 
+                  "fine_root_production", 
+                  "root_shoot_ratio", 
+                  "soil_no3-n", 
+                  "soil_nh4-n", 
+                  "soil_nh4", 
+                  "soil_no3", 
+                  "soil_solution_nh4", 
+                  "soil_solution_no3", 
+                  "root_n_uptake", 
+                  "root_nh4_uptake", 
+                  "root_no3_uptake"
+                  )
 
 df2 <- df1 %>% 
 
@@ -120,16 +149,33 @@ df2 <- df1 %>%
 
   ## variables re-grouped by myself
   mutate(myvar = ifelse(myvar %in%  c("agb", "agb_coarse"),   "agb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass", "coarse_root_c_stock", "bgb_coarse"), "bgb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("lai", "lai_max"), "lai", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass"), "bgb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production", "coarse_root_production"),
+  mutate(myvar = ifelse(myvar %in%  c("bgb", 
+                                      "fine_root_biomass",
+                                      "coarse_root_c_stock", 
+                                      "bgb_coarse"), 
+                        "bgb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("lai", 
+                                      "lai_max"), 
+                        "lai", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("bgb", 
+                                      "fine_root_biomass"), 
+                        "bgb", myvar)) %>% 
+  mutate(myvar = ifelse(myvar %in%  c("root_production", 
+                                      "fine_root_production", 
+                                      "coarse_root_production"),
                         "root_production", 
                         myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", "root_nh4_uptake", "root_no3_uptake"),
+  mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", 
+                                      "root_nh4_uptake", 
+                                      "root_no3_uptake"),
                         "n_uptake", 
                         myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3"), 
+  mutate(myvar = ifelse(myvar %in%  c("soil_no3-n", 
+                                      "soil_nh4-n", 
+                                      "soil_nh4", 
+                                      "soil_no3", 
+                                      "soil_solution_nh4", 
+                                      "soil_solution_no3"), 
                         "n_inorg", 
                         myvar))
 
@@ -164,7 +210,8 @@ Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Laj
 df3 <- df2 %>%
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp, myvar, treatment, sampling_year, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, duplicate_id, exp, myvar, treatment, sampling_year, 
+         x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
 
   ## Get logarithm of response ratio and its variance
   metafor::escalc( 
@@ -194,7 +241,7 @@ Response ratios of CO2 treatment.
 df3_co2 <- df2 |> 
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp, myvar, treatment, sampling_year, c_t, c_c) |> 
+  select(id, duplicate_id,  exp, myvar, treatment, sampling_year, c_t, c_c) |> 
 
   ## Get logarithm of response ratio
   mutate(logr_co2 = log(c_t / c_c))
@@ -205,7 +252,7 @@ Normalise
 df4 <- df3 |> 
   left_join(
     df3_co2,
-    by = c("id", "exp", "myvar", "sampling_year")
+    by = c("id", "duplicate_id", "exp", "myvar", "sampling_year")
   ) |> 
   
   # xxx Kevin: some missing information on CO2 concentrations here!
@@ -224,6 +271,9 @@ df4 <- df3 |>
 Aggregate all measurements (multiple years, sampling dates and plots) by experiment (and response variable - although here only one) for meta analysis.
 ```{r}
 df5 <- df4 %>% 
+  
+  # suggested addition by Kevin, email 02.10.2023 10:03
+  dplyr::distinct(duplicate_id, x_t, x_c, .keep_all = TRUE) |> 
   
   filter(!is.na(logr_var) & !is.na(logr)) %>% 
   
@@ -335,7 +385,23 @@ df5 %>%
 ## Visualisations
 
 ```{r}
-show_vars <- c("asat", "gpp", "vcmax", "jmax", "leaf_n_area", "leaf_n_mass", "leaf_cn", "lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")
+show_vars <- c("asat",
+               "gpp", 
+               "vcmax", 
+               "jmax", 
+               "leaf_n_area", 
+               "leaf_n_mass", 
+               "leaf_cn", 
+               "lai", 
+               # "leaf_area", 
+               # "leaf_biomass", 
+               "anpp", "agb", 
+               "root_production", 
+               "bgb", 
+               "root_shoot_ratio", 
+               "n_uptake", 
+               "n_inorg"
+               )
 
 df_labels <- tibble(
   myvar = rev(show_vars),
@@ -348,8 +414,8 @@ df_labels <- tibble(
     expression(paste(italic("N")[mass])),
     "Leaf C:N",
     "LAI",
-    "Leaf area",
-    "Leaf mass",
+    # "Leaf area",
+    # "Leaf mass",
     "ANPP",
     "AGB",
     "Root NPP",
@@ -377,28 +443,45 @@ df_box <- df_box |>
 
 Plot dots and my box.
 ```{r}
+set.seed(2023)
 gg_eco2_mesi <- df5 %>%
   ## give it a nice order (for plotting)
   filter(myvar %in% show_vars) |> 
   mutate(myvar = factor(myvar, levels = rev(show_vars))) %>% 
   
   ggplot( aes(x = myvar, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.5), aes( size = 1/logr_se ), 
+  geom_jitter( color = rgb(0,0,0,0.3), 
+               aes( size = 1/logr_se ), 
                position = position_jitter(w = 0.2, h = 0),
                show.legend = FALSE) +
   geom_crossbar( data = df_box, 
                  aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "tomato", color = "black", 
+                 fill = "tomato", color = "tomato4", 
                  alpha = 0.6, width = 0.5,
                  show.legend = FALSE
                  ) +
-  geom_hline( yintercept = 0.0, size = 0.5 ) +
-  labs(title = expression(paste("Response to eCO"[2])),
-       subtitle = "MESI data",
-       x = "", 
+  ylim(-1, 3.5) +
+  geom_hline(yintercept = 0.0, size = 0.5, linetype = "dotted") +
+  labs(x = "", 
        y = "Normalised log response ratio") +
   scale_x_discrete("", labels = df_labels$mylabl) +
-  coord_flip()
+  coord_flip() +
+  ggtitle(expression(bold("Response to CO"[2])), subtitle = "MESI data") +
+  theme_classic() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text( hjust = 0.98, 
+                               vjust = -5, 
+                               face = 'bold', 
+                               margin = margin(t=20, b=-30),
+                               size = 17
+                               ),
+    plot.subtitle = element_text( hjust = 0.98, 
+                                  vjust = -8, 
+                                  margin = margin(t=20, b=-30),
+                                  size = 15
+                                  )
+  )
 
 saveRDS(gg_eco2_mesi, file = paste0(here::here(), "/data/gg_eco2_mesi.rds"))
 
@@ -424,6 +507,7 @@ Reduced plot
 ```{r}
 use_vars <- c("lai", "leaf_area", "leaf_biomass", "anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")
 
+set.seed(2023)
 df5 |> 
   ungroup() |> 
   filter(myvar %in% use_vars) |> 
@@ -480,7 +564,7 @@ for (ivar in use_vars){
 
 ## MESI
 
-```
+```{r}
 df5 %>% 
   filter(myvar == "n_uptake") %>% 
   select(exp, myvar, rep_c)
@@ -501,7 +585,7 @@ df5 %>%
 <!--   filter(my_varnam == "my_navl") %>%  -->
 <!--   select(exp_nam, my_varnam, n_plots) -->
 
-``
+```{r}
 df5 %>% 
   filter(myvar == "n_inorg") %>% 
   select(exp, myvar, rep_c)
@@ -570,9 +654,7 @@ gg_eco2_cpl_agb_bgb_mesi <- df5_agb_bnpp %>%
   xlim(0, 1.5) + ylim(0, 1.5) +
   geom_abline(linetype = "dotted") + 
   ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(title = " ",
-       subtitle = " ",
-       x = "Normalised log RR of BGB", 
+  labs(x = "Normalised log RR of BGB", 
        y = "Normalised log RR of AGB", 
        size = expression(paste("Error"^{-1}))) +
   theme_classic()
@@ -668,7 +750,23 @@ df1 <- df0
 ```{r}
 ## select variables only variables as used for CO2 analysis and not provided by Liang et al.
 ## create own variable names (myvar), grouping available variables
-use_response <- c("anpp", "agb", "bgb", "fine_root_biomass", "root_production", "fine_root_production", "root_shoot_ratio", "soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3", "root_n_uptake", "root_nh4_uptake", "root_no3_uptake")
+use_response <- c("anpp", 
+                  "agb", 
+                  "bgb", 
+                  "fine_root_biomass", 
+                  "root_production", 
+                  "fine_root_production", 
+                  "root_shoot_ratio", 
+                  "soil_no3-n", 
+                  "soil_nh4-n", 
+                  "soil_nh4", 
+                  "soil_no3", 
+                  "soil_solution_nh4", 
+                  "soil_solution_no3", 
+                  "root_n_uptake", 
+                  "root_nh4_uptake", 
+                  "root_no3_uptake"
+                  )
 
 df2 <- df1 %>% 
 
@@ -702,7 +800,7 @@ Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Laj
 df3 <- df2 |> 
   
   ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, exp, myvar, treatment, sampling_year, n_t, nfert_lev, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
+  select(id, duplicate_id, exp, myvar, treatment, sampling_year, n_t, nfert_lev, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
 
   ## Get logarithm of response ratio and its variance
   metafor::escalc( 
@@ -732,7 +830,10 @@ Aggregate all measurements (multiple years, sampling dates and plots) by experim
 
 ```{r}
 df4 <- df3 |> 
-  
+
+  # suggested addition by Kevin, email 02.10.2023 10:03
+  dplyr::distinct(duplicate_id, x_t, x_c, .keep_all = TRUE) |> 
+
   filter(!is.na(logr_var) & !is.na(logr)) |>  
   
   # re-create ID (common ID per experiment and response variable)
@@ -871,7 +972,7 @@ Number of data points (plot-level measurements) per variable:
 ```{r}
 df4 %>% 
   group_by(myvar) %>% 
-  summarise(n_plots = sum(rep_c), n_exp = n()) %>% 
+  summarise(n_plots = sum(rep_c, na.rm = TRUE), n_exp = n()) %>% 
   rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
   knitr::kable()
 ```
@@ -907,22 +1008,39 @@ df_plot <- df4 %>%
   ## give it a nice order (for plotting)
   mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg"))))
 
+set.seed(2023)
 gg_nfert_mesi <- ggplot(df_plot, aes(x = myvar, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.5), 
+  geom_jitter( color = rgb(0,0,0,0.3), 
                aes( size = 1/logr_se ), 
                position = position_jitter(w = 0.2, h = 0),
                show.legend = FALSE
                ) +
-  geom_crossbar( data = df_box %>% drop_na(var), 
+  geom_crossbar( data = df_box %>% 
+                   drop_na(var), 
                  aes(x = var, y = middle, ymin = ymin, ymax = ymax),
-                 fill = "tomato", color = "black", alpha = 0.6, width = 0.5 ) +
-  geom_hline( yintercept = 0.0, size = 0.5 ) +
-  labs(title = "Response to N-fertilisation",
-       subtitle = "MESI data",
-       x = "", 
+                 fill = "royalblue", color = "royalblue4", alpha = 0.6, width = 0.5 ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted" ) +
+  ylim(-1, 3.5) +
+  labs(x = "", 
        y = "Log response ratio") +
   coord_flip() +
-  scale_x_discrete("", labels = mylabl)
+  scale_x_discrete("", labels = mylabl) +
+  ggtitle(expression(bold("Response to N")), subtitle = "MESI data") +
+  theme_classic() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text( hjust = 0.98, 
+                               vjust = 0, 
+                               face = 'bold', 
+                               margin = margin(t=20, b=-30),
+                               size = 17
+                               ),
+    plot.subtitle = element_text( hjust = 0.98, 
+                                  vjust = -3, 
+                                  margin = margin(t=20, b=-30),
+                                  size = 15
+                                  )
+  )
 
 
 saveRDS(gg_nfert_mesi, file = paste0(here::here(), "/data/gg_nfert_mesi.rds"))
@@ -1070,9 +1188,7 @@ gg_nfert_cpl_agb_bgb_mesi <- df4_agb_bnpp %>%
   xlim(0, 0.6) + ylim(0, 0.6) +
   geom_abline(linetype = "dotted") + 
   ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(title = " ",
-       subtitle = " ",
-       x = "Log RR of BGB", 
+  labs(x = "Log RR of BGB", 
        y = "Log RR of AGB") +
   theme_classic()
 

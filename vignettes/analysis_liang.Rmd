@@ -256,6 +256,7 @@ out  <- purrr::map(
                 ))
 names(out) <- use_vars
 df_box <- purrr::map_dfr(out, "df_box")
+saveRDS(df_box, file = "../data/df_box_liang_nfert.rds")
 ```
 
 ### By N-fert level
@@ -305,25 +306,46 @@ df_plot <- df4 |>
   filter(response %in% use_vars) |> 
   mutate(response = factor(response, levels = rev(use_vars)))
 
-gg_nfert_liang <- ggplot(data = df_plot, 
-       aes(x = response, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.4), aes( size = 1/logr_se ), position = position_jitter(w = 0.2, h = 0), show.legend = FALSE ) +
-  geom_crossbar( data = df_box, aes(x = var, y = middle, ymin = ymin, ymax = ymax), fill = "tomato", color = "black", alpha = 0.6, width = 0.5 ) +
-  geom_hline( yintercept = 0.0, size = 0.5) +
+set.seed(2023)
+gg_nfert_liang <- ggplot(
+    data = df_plot, 
+    aes(x = response, y = logr)) +
+  geom_jitter( color = rgb(0,0,0,0.3), 
+               aes( size = 1/logr_se ), 
+               position = position_jitter(w = 0.2, h = 0), 
+               show.legend = FALSE ) +
+  geom_crossbar( data = df_box, 
+                 aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
+                 fill = "royalblue", color = "royalblue4", alpha = 0.6, width = 0.5 ) +
+  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
   labs(x = "Variable", y = "Log Response Ratio") +
   coord_flip() +
   scale_x_discrete("", labels = rev(mylabs)) +
-  labs(title = "Response to N-fertilisation",
-       subtitle = "Liang et al. 2020 data",
-       x = "", 
-       y = "Log response ratio")
+  ylim(-1, 3.5) +
+  labs(x = "", 
+       y = "Log response ratio") +
+  ggtitle(expression(bold("Response to N")), subtitle = "Liang et al. data") +
+  theme_classic() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text( hjust = 0.98, 
+                               vjust = 0, 
+                               face = 'bold', 
+                               margin = margin(t=20, b=-30),
+                               size = 17
+                               ),
+    plot.subtitle = element_text( hjust = 0.98, 
+                                  vjust = -3, 
+                                  margin = margin(t=20, b=-30),
+                                  size = 15
+                                  )
+  )
 
 saveRDS(gg_nfert_liang, file = paste0(here::here(), "/data/gg_nfert_liang.rds"))
 
 gg_nfert_liang
 ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.pdf"), width = 6, height = 4)
 ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.png"), width = 6, height = 4)
-
 ```
 
 **Findings:**
