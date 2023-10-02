@@ -101,7 +101,7 @@ var_order <- c("asat",
                "leaf_n_mass", 
                "leaf_cn", 
                "lai", 
-               "leaf_biomass", 
+               # "leaf_biomass", 
                "anpp", 
                "agb", 
                "root_production",
@@ -120,7 +120,7 @@ mylabl = rev(c(
     expression(paste("Leaf ", italic("N")[mass])),
     "Leaf C:N",
     "LAI",
-    "Leaf mass",
+    # "Leaf mass",
     "ANPP",
     "AGB",
     "Root NPP",
@@ -152,12 +152,29 @@ gg_mesi_cnmodel_eco2 <- df_box_co2 |>
              fill = "#29a274ff" 
              ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "Variable", 
-       y = "Normalised log response ratio", 
-       title = expression(paste("Response to eCO"[2])),
-       subltitle = "MESI data and cnodel") +
   scale_x_discrete("", labels = mylabl) +
-  coord_flip()
+  coord_flip() +
+  ylim(-1, 3.5) +
+  labs(x = "", 
+       y = "Normalised log response ratio") +
+  scale_x_discrete("", labels = df_labels$mylabl) +
+  coord_flip() +
+  ggtitle(expression(bold("Response to CO"[2])), subtitle = "cnmodel vs. MESI data") +
+  theme_classic() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text( hjust = 0.98, 
+                               vjust = -5, 
+                               face = 'bold', 
+                               margin = margin(t=20, b=-30),
+                               size = 17
+                               ),
+    plot.subtitle = element_text( hjust = 0.98, 
+                                  vjust = -8, 
+                                  margin = margin(t=20, b=-30),
+                                  size = 15
+                                  )
+  )
 
 gg_mesi_cnmodel_eco2
 ggsave("../fig/mesi_cnmodel_co2.pdf")
@@ -167,7 +184,8 @@ ggsave("../fig/mesi_cnmodel_co2.pdf")
 
 Load CO2 meta-analysis results from MESI (produced with `vignettes/analysis_mesi.Rmd`). 
 ```{r}
-df_box_nfert_mesi <- read_rds(paste0(here::here(), "/data/df_box_mesi_nfert.rds"))
+#df_box_nfert_mesi <- read_rds(paste0(here::here(), "/data/df_box_mesi_nfert.rds"))
+df_box_nfert_mesi <- read_rds(file = paste0(here::here(), "/data/df_box_mesi_nfert_eperkowski.rds"))
 
 # read and change variable names to match with cnmodel output
 df_box_nfert_liang <- read_rds(paste0(here::here(), "/data/df_box_liang_nfert.rds")) |> 
@@ -189,7 +207,8 @@ years_after  <- 2015:2025
 df_cnmodel_nfert_before <- df_cnmodel_nfert |> 
   mutate(root_shoot_ratio = croot / cleaf,
          nmass = narea/lma,
-         leaf_cn = cleaf / nleaf) |> 
+         leaf_cn = cleaf / nleaf, 
+         rmf = croot / (croot + cleaf)) |> 
   mutate(year = lubridate::year(date)) |> 
   filter(year %in% years_before) |> 
   summarise(across(where(is.numeric), mean))
@@ -197,7 +216,8 @@ df_cnmodel_nfert_before <- df_cnmodel_nfert |>
 df_cnmodel_nfert_after <- df_cnmodel_nfert |> 
   mutate(root_shoot_ratio = croot / cleaf,
          nmass = narea/lma,
-         leaf_cn = cleaf / nleaf) |> 
+         leaf_cn = cleaf / nleaf, 
+         rmf = croot / (croot + cleaf)) |> 
   mutate(year = lubridate::year(date)) |> 
   filter(year %in% years_after) |> 
   summarise(across(where(is.numeric), mean))
@@ -212,13 +232,14 @@ df_cnmodel_nfert_logresponse <-
   pivot_longer(cols = everything(), names_to = "var", values_to = "logrr_cnmodel")
 ```
 
-Visualisation of variables from MESI.
+Visualisation of variables from MESI + NutNet.
 ```{r}
 var_order <- c("anpp", 
                "agb", 
                "root_production", 
                "bgb", 
                "root_shoot_ratio", 
+               "rmf",
                "n_uptake", 
                "n_inorg"
                )
@@ -229,11 +250,12 @@ mylabl = rev(c(
     "Root NPP",
     "BGB",
     "Root:shoot",
+    "RMF",
     "N uptake",
     "Inorganic N"
   ))
 
-gg_mesi_cnmodel_nfert <- df_box_nfert_mesi |> 
+gg_mesi_cnmodel_nfert_mesi <- df_box_nfert_mesi |> 
   left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
   
   ## give it a nice order (for plotting)
@@ -254,12 +276,27 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_mesi |>
              fill = "#29a274ff" 
              ) +
   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted") +
-  labs(x = "", 
-       y = "Normalised log response ratio",
-       title = "Response to N-fertilization",
-       subtitle = "MESI data and cnmodel") +
   coord_flip() +
-  scale_x_discrete("", labels = mylabl)
+  scale_x_discrete("", labels = mylabl) +
+  ylim(-1, 3.5) +
+  labs(x = "", 
+       y = "Log response ratio") +
+  ggtitle(expression(bold("Response to N")), subtitle = "cnmodel vs.\n MESI + NutNet data") +
+  theme_classic() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text( hjust = 0.98, 
+                               vjust = 0, 
+                               face = 'bold', 
+                               margin = margin(t=20, b=-30),
+                               size = 17
+                               ),
+    plot.subtitle = element_text( hjust = 0.98, 
+                                  vjust = -3, 
+                                  margin = margin(t=20, b=-30),
+                                  size = 15
+                                  )
+  )
 
   # ggplot() +
   # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -272,8 +309,8 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_mesi |>
   # # ylim(-1, 1) +
   # labs(title = "MESI data", subtitle = "Response to N-fertilization")
 
-gg_mesi_cnmodel_nfert
-ggsave("../fig/mesi_cnmodel_nfert.pdf")
+gg_mesi_cnmodel_nfert_mesi
+ggsave("../fig/gg_mesi_cnmodel_nfert_mesi.pdf")
 ```
 
 Visualisation of variables from Liang et al.
@@ -292,7 +329,7 @@ mylabl = rev(c(
     "LAI"
   ))
 
-gg_mesi_cnmodel_nfert <- df_box_nfert_liang |> 
+gg_mesi_cnmodel_nfert_liang <- df_box_nfert_liang |> 
   left_join(df_cnmodel_nfert_logresponse, 
             by = "var") |> 
   
@@ -315,12 +352,27 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_liang |>
   geom_hline( yintercept = 0.0, 
               size = 0.5, 
               linetype = "dotted") +
+  ylim(-1, 3.5) +
+  scale_x_discrete("", labels = rev(mylabs)) +
   labs(x = "", 
-       y = "Normalised log response ratio", 
-       title = "Response to N-fertilization",
-       subtitle = "Liang et al. data and cnmodel") +
+       y = "Log response ratio") +
+  ggtitle(expression(bold("Response to N")), subtitle = "cnmodel vs.\n Liang et al. data") +
+  theme_classic() +
   coord_flip() +
-  scale_x_discrete("", labels = mylabl)
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text( hjust = 0.98, 
+                               vjust = 0, 
+                               face = 'bold', 
+                               margin = margin(t=20, b=-30),
+                               size = 17
+                               ),
+    plot.subtitle = element_text( hjust = 0.98, 
+                                  vjust = -3, 
+                                  margin = margin(t=20, b=-30),
+                                  size = 15
+                                  )
+  )
 
   # ggplot() +
   # geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -333,14 +385,31 @@ gg_mesi_cnmodel_nfert <- df_box_nfert_liang |>
   # # ylim(-1, 1) +
   # labs(title = "MESI data", subtitle = "Response to N-fertilization")
 
-gg_mesi_cnmodel_nfert
-ggsave("../fig/liang_cnmodel_nfert.pdf")
+gg_mesi_cnmodel_nfert_liang
+ggsave("../fig/gg_mesi_cnmodel_nfert_liang.pdf")
 ```
 
 ## Publication figure
 
 ```{r}
-cowplot::plot_grid(gg_mesi_cnmodel_eco2, gg_mesi_cnmodel_nfert, ncol = 1, rel_heights = c(1, 0.43), labels = c("a", "b"))
+# combined meta-analysis plot
+cowplot::plot_grid(gg_mesi_cnmodel_nfert_liang,
+                   gg_mesi_cnmodel_nfert_mesi,
+                   gg_mesi_cnmodel_eco2, 
+                   rel_heights = c(0.36, 0.52, 0.8), 
+                   labels = c("a", "b", "c"),
+                   ncol = 1)
+
+ggsave(paste0(here::here(), "/fig/combined_metaanalysis_cnmodel.pdf"), width = 8, height = 11)
+ggsave(paste0(here::here(), "/fig/combined_metaanalysis_cnmodel.png"), width = 8, height = 11)
+
+
+
+cowplot::plot_grid(gg_mesi_cnmodel_eco2, 
+                   gg_mesi_cnmodel_nfert, 
+                   ncol = 1, 
+                   rel_heights = c(1, 0.43), 
+                   labels = c("a", "b"))
 ggsave(paste0(here::here(), "/fig/mesi_cnmodel.pdf"), width = 6, height = 8)
 ggsave(paste0(here::here(), "/fig/mesi_cnmodel.png"), width = 6, height = 8)
 ```

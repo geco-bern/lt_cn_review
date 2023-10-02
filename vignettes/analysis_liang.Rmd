@@ -50,7 +50,14 @@ Make data (more) conform with MESI.
 ```{r}
 # ALL:
 # use_vars <- c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")
-use_vars <- c("Vcmax", "Narea", "Nmass", "LAI", "Leaf area per plant", "Leaf biomass")
+
+use_vars <- c("Vcmax", 
+              "Narea", 
+              "Nmass",
+              "LAI",
+              # "Leaf area per plant", 
+              "Leaf biomass"
+              )
 
 df <- df %>% 
   mutate(db = "liang",
@@ -297,7 +304,7 @@ mylabs <- c(
   expression(paste(italic("N")[area])),
   expression(paste(italic("N")[mass])),
   "LAI",
-  "Leaf area",
+  # "Leaf area",
   "Leaf biomass"
 )
 

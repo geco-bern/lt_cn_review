@@ -29,7 +29,7 @@ gg_nfert_cpl_agb_bgb_mesinutnet <- readRDS(file = paste0(here::here(), "/data/gg
 cowplot::plot_grid(gg_nfert_liang,
                    gg_nfert_mesinutnet,
                    gg_eco2_mesi, 
-                   rel_heights = c(0.42, 0.52, 0.8), 
+                   rel_heights = c(0.36, 0.52, 0.8), 
                    labels = c("a", "b", "c"),
                    ncol = 1)
 
