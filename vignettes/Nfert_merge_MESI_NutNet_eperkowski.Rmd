@@ -456,7 +456,14 @@ out  <- purrr::map(as.list(use_vars2),
                    ~analyse_meta(df4_combined %>% 
                                    rename(var = myvar), nam_target = .))
 names(out) <- use_vars2
-df_box <- purrr::map_dfr(out, "df_box")
+df_box <- purrr::map_dfr(out, "df_box") |> 
+  left_join(
+    df4_combined |> 
+      group_by(myvar) |> 
+      summarise(logr_min = min(logr), logr_max = max(logr)) |> 
+      rename(var = myvar),
+    by = "var"
+  )
 saveRDS(df_box, file = paste0(here::here(), "/data/df_box_mesi_nfert_eperkowski.rds"))
 ```
 

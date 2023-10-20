@@ -22,9 +22,8 @@ library(skimr)
 Outputs are generated with `rsofun/analysis/example_cnmodel_ch_oe1.R`. Copy them to `./data/`. This is for a simulation for FLUXNET site CH-Oe1, a grassland. 
 
 ```{r}
-system("cp ~/rsofun/tmp/output_cnmodel_ch_oe1.R ../data/")
-df_rsofun <- readRDS("../data/output_cnmodel_ch_oe1.R")
-# df_rsofun <- read_csv("../data/output_cnmodel_co2.csv")
+system("cp ~/rsofun/tmp/output_cnmodel_ch_oe1.rds ../data/")
+df_rsofun <- readRDS("../data/output_cnmodel_ch_oe1.rds")
 
 df_rsofun_agg <- df_rsofun |> 
   summarise(across(where(is.numeric), mean))
@@ -121,18 +120,25 @@ settings_fluxnet <- list(
   remove_neg   = FALSE
   )
 
-adf_fluxnet <- ingest(
-  siteinfo = siteinfo_fluxnet2015 |> filter(classid == "GRA" & str_detect(koeppen_code, "^C") ),
-  source   = "fluxnet",
-  getvars  = list(gpp = "GPP_NT_VUT_REF"),
-  dir      = "~/data/FLUXNET-2015_Tier1/20191024/YY/", # adjust this with your local path
-  settings = settings_fluxnet,
-  timescale= "y"
-  )
+filnam <- "~/lt_cn_review/data/adf_fluxnet.rds"
 
-adf_fluxnet <- adf_fluxnet |> 
-  mutate(data = purrr::map(data, ~summarise(., gpp = mean(gpp)))) |> 
-  unnest(data)
+if (!file.exists(filnam)){
+  adf_fluxnet <- ingest(
+    siteinfo = siteinfo_fluxnet2015 |> filter(classid == "GRA" & str_detect(koeppen_code,   "^C") ),
+    source   = "fluxnet",
+    getvars  = list(gpp = "GPP_NT_VUT_REF"),
+    dir      = "~/data/FLUXNET-2015_Tier1/20191024/YY/", # adjust this with your local path
+    settings = settings_fluxnet,
+    timescale= "y"
+    )
+  write_rds(adf_fluxnet, filnam)
+} else {
+  adf_fluxnet <- read_rds(filnam)
+}
+
+# adf_fluxnet <- adf_fluxnet |> 
+#   mutate(data = purrr::map(data, ~summarise(., gpp = mean(gpp)))) |> 
+#   unnest(data)
 ```
 
 ```{r}

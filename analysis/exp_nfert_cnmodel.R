@@ -10,13 +10,17 @@ library(rsofun)
 
 ## Parameters ------------------------
 pars <- list(
-  
+
   # P-model
-  kphio                 = 0.08,
-  soilm_par_a           = 0.0,
-  soilm_par_b           = 0.73300,
-  tau_acclim_tempstress = 7.35259044,
-  par_shape_tempstress  = 0.09863961,
+  kphio                 = 0.04998,    # setup ORG in Stocker et al. 2020 GMD
+  kphio_par_a           = 0.0,        # set to zero to disable temperature-dependence of kphio
+  kphio_par_b           = 1.0,
+  soilm_thetastar       = 0.6 * 240,  # to recover old setup with soil moisture stress
+  soilm_betao           = 0.0,
+  beta_unitcostratio    = 146.0,
+  rd_to_vcmax           = 0.014,      # value from Atkin et al. 2015 for C3 herbaceous
+  tau_acclim            = 30.0,
+  kc_jmax               = 0.41,  
   
   # Plant
   f_nretain             = 0.500000,
@@ -34,11 +38,11 @@ pars <- list(
   r_cton_root           = 37.0000,
   r_cton_wood           = 100.000,
   r_cton_seed           = 15.0000,
-  nv_vcmax25            = 5000.0,
-  ncw_min               = 0.056,
-  r_n_cw_v              = 0.2,
-  r_ctostructn_leaf     = 80.0000,
-  kbeer                 = 0.400000,
+  nv_vcmax25            = 0.02 * 13681.77, # see ln_cn_review/vignettes/analysis_leafn_vcmax_field.Rmd, l.695; previously: 5000.0,
+  ncw_min               = 0.08 * 1.116222, # see ln_cn_review/vignettes/analysis_leafn_vcmax_field.Rmd, l.691; previously used: 0.056,
+  r_n_cw_v              = 0, # assumed that LMA is independent of Vcmax25; previously: 0.1,
+  r_ctostructn_leaf     = 1.3 * 45.84125, # see ln_cn_review/vignettes/analysis_leafn_vcmax_field.Rmd, l.699; previously used: 80.0000,
+  kbeer                 = 0.500000,
   
   # Phenology (should be PFT-specific)
   gddbase               = 5.0,
@@ -93,7 +97,7 @@ pars <- list(
   b_param_fix           = 0.270000,
   
   # Inorganic N transformations (re-interpreted for simple ntransform model)
-  maxnitr               =  0.0001,
+  maxnitr               =  0.0002,
   
   # Inorganic N transformations for full ntransform model (not used in simple model)
   non                   = 0.01,
@@ -104,9 +108,9 @@ pars <- list(
   dnitr2n2o             = 0.01,
   
   # Additional parameters - previously forgotten
-  beta                  = 146.000000,
-  rd_to_vcmax           = 0.01400000,
-  tau_acclim            = 10,
+  frac_leaf             = 0.5,           # after wood allocation
+  frac_wood             = 0.0,           # highest priority in allocation
+  frac_avl_labl         = 0.1,
   
   # for development
   tmppar                = 9999,
@@ -147,6 +151,9 @@ tmp <- rsofun::p_model_drivers |>
                                                dno3 = 0.0016, # 0.6 / 365,
                                                dnh4 = 0.0014, # 0.5 / 365
   )))
+
+## interactive C-N cycling
+tmp$params_siml[[1]]$c_only <- FALSE
 
 ## no soil moisture stress
 tmp$params_siml[[1]]$soilmstress <- FALSE
@@ -204,7 +211,6 @@ for (idx in seq(n_ext)){
       mutate(date = date + years(1))
   )
 }
-tmp$params_siml[[1]]$nyeartrend <- tmp$params_siml[[1]]$nyeartrend + n_ext
 tmp$forcing[[1]] <- df_tmp
 
 
@@ -234,7 +240,7 @@ tmp$forcing[[1]] |>
   ylim(0, NA)
 
 ## Model run ------------------------
-output <- runread_pmodel_f(
+output <- runread_cnmodel_f(
   tmp,
   par = pars
 ) 
@@ -369,9 +375,9 @@ ggrr <- ggplot() +
   coord_flip() +
   labs(title = "cnmodel prediction", subtitle = "Response to N-fertilization")
 
-ggsave(paste0(here::here(), "/fig/response_nfert_cnmodel.pdf"))
+ggsave(paste0(here::here(), "/fig/response_nfert_cnmodel_NEW.pdf"))
 
 
 ## Write output to file --------------------
-readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert.csv"))
+readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert_NEW.csv"))
 

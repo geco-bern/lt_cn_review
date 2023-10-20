@@ -650,7 +650,9 @@ gg_lma <- gg_lma +
 
 Consider leaf Narea as consisting of a metabolic $N_v$ and a structural $N_s$ leaf N component:
 $$
-N_\text{area} = N_v + N_s
+N_\text{area} = N_v + N_s \\
+
+N_\text{area} = n_v\;V_\text{cmax25} + n_s\;\text{LMA}
 $$
 and that $N_v$ is proportional to $V_\text{cmax25}$, while $N_s$ is proportional to LMA (with a zero-y-axis intercept).
 ```{r}
@@ -677,10 +679,26 @@ df <- df |>
   mutate(narea_pred = predict(linmod_leafn, newdata = df))
 
 out <- df |> 
-  analyse_modobs2(mod = "narea_pred", obs = "Narea") 
+  analyse_modobs2(mod = "narea_pred", obs = "Narea", type = "hex") 
 
 out$gg +
-  xlim(0, 18) + ylim(0, 18)
+  xlim(0, 10) + ylim(0, 10)
+```
+
+### For CN-model
+
+```{r}
+ncw_min <- quantile(df$LMA, probs = 0.5, na.rm = TRUE) * coef(linmod_leafn)["LMA"]
+ncw_min
+# ncw_min should be: 1.116222 gN m-2
+
+nv_vcmax25 <- 1e6 * coef(linmod_leafn)["vcmax25_obs"]
+nv_vcmax25
+# nv_vcmax25 should be: 13681.77 gN m-2 / (mol m-2 s-1)
+
+r_ctostructn_leaf <- 0.5 * 1/coef(linmod_leafn)["LMA"] # factor 0.5 for gC gDM-1
+r_ctostructn_leaf
+# r_ctostructn_leaf should be 45.84125 gC gN-1
 ```
 
 ### Modelled and observed partial relationships

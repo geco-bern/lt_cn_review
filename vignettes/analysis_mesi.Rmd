@@ -328,7 +328,15 @@ out  <- purrr::map(as.list(use_vars),
                                    rename(var = myvar),
                                  nam_target = .))
 names(out) <- use_vars
-df_box <- purrr::map_dfr(out, "df_box")
+df_box <- purrr::map_dfr(out, "df_box") |> 
+  left_join(
+    df5 |> 
+      group_by(myvar) |> 
+      summarise(logr_min = min(logr), logr_max = max(logr)) |> 
+      rename(var = myvar),
+    by = "var"
+  )
+
 saveRDS(df_box, file = "../data/df_box_mesi_co2.rds")
 ```
 
@@ -935,7 +943,14 @@ out  <- purrr::map(
                 )
   )
 names(out) <- use_vars
-df_box <- purrr::map_dfr(out, "df_box")
+df_box <- purrr::map_dfr(out, "df_box") |> 
+  left_join(
+    df4 |> 
+      group_by(myvar) |> 
+      summarise(logr_min = min(logr), logr_max = max(logr)) |> 
+      rename(var = myvar),
+    by = "var"
+  )
 saveRDS(df_box, file = "../data/df_box_mesi_nfert.rds")
 ```
 

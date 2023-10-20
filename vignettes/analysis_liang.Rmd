@@ -262,7 +262,14 @@ out  <- purrr::map(
                 nam_target = .
                 ))
 names(out) <- use_vars
-df_box <- purrr::map_dfr(out, "df_box")
+df_box <- purrr::map_dfr(out, "df_box") |> 
+  left_join(
+    df4 |> 
+      group_by(response) |> 
+      summarise(logr_min = min(logr), logr_max = max(logr)) |> 
+      rename(var = response),
+    by = "var"
+  )
 saveRDS(df_box, file = "../data/df_box_liang_nfert.rds")
 ```
 
