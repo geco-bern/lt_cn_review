@@ -400,7 +400,7 @@ linmod_lma   <- lm(log_LMA ~         log_vpd  + ppfd  + tgrowth + CNrt + log_nde
 Check collinearity with variance inflation factor. (the same for all models). They are all below 5 - that's good (James et al., 2014).
 
 *James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani. 2014. An Introduction to Statistical Learning: With Applications in R. Springer Publishing Company, Incorporated.*
-```{r}
+```{r eval=FALSE}
 vif(linmod_vcmax)
 vif(linmod_narea)
 vif(linmod_nmass)
@@ -557,6 +557,7 @@ df_tvals |>
   )
 
 ggsave(paste0(here::here(), "/fig/tvals_bars.pdf"), width = 8, height = 5)
+ggsave(paste0(here::here(), "/fig/tvals_bars.png"), width = 8, height = 5)
 ```
 
 ```{r}

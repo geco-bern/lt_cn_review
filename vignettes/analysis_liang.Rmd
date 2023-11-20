@@ -31,12 +31,12 @@ I first exported each excel tab to a separate CSV file and then combined them in
 # files <- list.files(path = "~/data/nfert_liang/data_csv/", full.names = TRUE)
 # df <- purrr::map_dfr(as.list(files), ~read_csv(.))
 # use_names <- c(
-#   "variable",           "reference",          "lat",                "lon",                "mat",               
-#   "map",                "ph_soil",            "species",            "family",             "genus",             
-#   "photopathway",       "legume",             "managed",            "growthform",         "functionaltype",    
-#   "broadleaf_conifer",  "evergreen_deciduous","ninorg_form",        "ndep_kg_ha_yr",      "duration_yr",       
-#   "load",               "value_t",            "value_c",            "n_t",                "n_c",               
-#   "sd_t",               "sd_c",               "ln_rr",              "v",                  "w",                 
+#   "variable",           "reference",          "lat",                "lon",                "mat",
+#   "map",                "ph_soil",            "species",            "family",             "genus",
+#   "photopathway",       "legume",             "managed",            "growthform",         "functionaltype",
+#   "broadleaf_conifer",  "evergreen_deciduous","ninorg_form",        "ndep_kg_ha_yr",      "duration_yr",
+#   "load",               "value_t",            "value_c",            "n_t",                "n_c",
+#   "sd_t",               "sd_c",               "ln_rr",              "v",                  "w",
 #   "cluster",            "w_dash"
 #   )
 # names(df) <- use_names
@@ -51,7 +51,8 @@ Make data (more) conform with MESI.
 # ALL:
 # use_vars <- c("Area", "Vcmax", "gs", "inst-WUE", "Narea", "Nmass", "SLA", "LMA", "LAI", "Leaf area per plant", "Leaf biomass")
 
-use_vars <- c("Vcmax", 
+use_vars <- c("Aarea", 
+              "Vcmax", 
               "Narea", 
               "Nmass",
               "LAI",
@@ -307,6 +308,7 @@ saveRDS(df_boxb, file = "../data/df_boxb_liang_nfert.rds")
 Plot dots and my box.
 ```{r}
 mylabs <- c(
+  expression(paste(italic("A")[area])),
   expression(paste(italic("V")[cmax])),
   expression(paste(italic("N")[area])),
   expression(paste(italic("N")[mass])),
