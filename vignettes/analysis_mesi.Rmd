@@ -54,8 +54,8 @@ df0 <- df %>%
   ## CO2-only manipulation (no other factors manipulated, no crossed manipulation)
   filter(treatment == "c") %>% 
   
-  ## only experiments conducted in the field
-  filter(experiment_type == "field") %>% 
+  # ## only experiments conducted in the field
+  # filter(experiment_type == "field") %>%   # remove this filter (Kevin, email 29.11.2023)
   
   ## use only free air CO2 enrichment experiments and open-top chambers
   filter(fumigation_type %in% c("face", "otc"))
@@ -464,8 +464,10 @@ gg_eco2_mesi <- df5 %>%
                show.legend = FALSE) +
   geom_crossbar( data = df_box, 
                  aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
-                 fill = "tomato", color = "tomato4", 
-                 alpha = 0.6, width = 0.5,
+                 fill = "tomato", 
+                 color = "tomato4", 
+                 alpha = 0.6, 
+                 width = 0.5,
                  show.legend = FALSE
                  ) +
   ylim(-1, 3.5) +
@@ -629,12 +631,19 @@ df5_anpp_bnpp <- df5 %>%
 
 df5_anpp_bnpp %>% 
   ggplot(aes(x = root_production, y = anpp, label = exp)) +
-  geom_point(size = 3, color = "tomato") +
-  geom_point(aes(size =  1/se), color = "tomato") +
+  geom_point(aes(size =  1/se), 
+             fill = "tomato", 
+             color = "tomato4", 
+             alpha = 0.6, 
+             ) +
   xlim(0, 2) + ylim(0, 2) +
   geom_abline(linetype = "dotted") + 
-  ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(x = "Log RR of root NPP", y = "Log RR of ANPP", size = expression(paste("Error"^{-1}))) +
+  ggrepel::geom_text_repel(size = 3, 
+                           point.padding = 0.5, 
+                           segment.alpha = 0, 
+                           color = "grey50") +
+  labs(x = "Log RR of root NPP", y = "Log RR of ANPP", 
+       size = expression(paste("Error"^{-1}))) +
   theme_classic()
 ```
 
@@ -658,16 +667,27 @@ df5_agb_bnpp <- df5 %>%
 
 gg_eco2_cpl_agb_bgb_mesi <- df5_agb_bnpp %>% 
   ggplot(aes(x = bgb, y = agb, label = exp)) +
-  geom_point(aes(size =  1/se), color = rgb(0,0,0,0.5), show.legend = FALSE) +
-  xlim(0, 1.5) + ylim(0, 1.5) +
+  geom_point(aes(size =  1/se),
+             fill = "tomato", 
+             color = "tomato4", 
+             alpha = 0.6,
+             show.legend = FALSE,
+             shape = 21
+             ) +
+  xlim(0, 1.5) + 
+  ylim(0, 1.5) +
   geom_abline(linetype = "dotted") + 
-  ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
+  ggrepel::geom_text_repel(size = 3, 
+                           point.padding = 0.5, 
+                           segment.alpha = 0, 
+                           color = "grey50") +
   labs(x = "Normalised log RR of BGB", 
        y = "Normalised log RR of AGB", 
        size = expression(paste("Error"^{-1}))) +
   theme_classic()
 
-saveRDS(gg_eco2_cpl_agb_bgb_mesi, file = paste0(here::here(), "/data/gg_eco2_cpl_agb_bgb_mesi.rds"))
+saveRDS(gg_eco2_cpl_agb_bgb_mesi, 
+        file = paste0(here::here(), "/data/gg_eco2_cpl_agb_bgb_mesi.rds"))
 
 gg_eco2_cpl_agb_bgb_mesi
 ggsave(paste0(here::here(), "/fig/eco2_cpl_agb_bgb_mesi.pdf"), width = 6, height = 6)

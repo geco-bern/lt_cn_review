@@ -276,7 +276,10 @@ Follows exact approach from Beni's analysis from Rpubs. Link: https://rpubs.com/
 df0 <- df_mesi %>%
   
   ## fertilisation experiments only
-  filter(treatment == "f") %>% 
+  filter(treatment == "f") |> 
+  
+  ## N-fertilisation only (no P or K manipulation)
+  filter(npk == "_100") |> 
   
   ## only experiments conducted in the field
   filter(experiment_type == "field")
@@ -579,11 +582,20 @@ df4_agb_bnpp <- df4_combined %>%
 
 gg_nfert_cpl_agb_bgb_mesinutnet <- df4_agb_bnpp %>% 
   ggplot(aes(x = bgb, y = agb, label = exp)) +
-  geom_point(aes(size =  1/se), color = rgb(0,0,0,0.5), show.legend = FALSE) +
+  geom_point(aes(size =  1/se),
+             fill = "royalblue", 
+             color = "royalblue4", 
+             alpha = 0.6,
+             show.legend = FALSE,
+             shape = 21) +
   xlim(0, 0.6) + 
   ylim(0, 0.6) +
   geom_abline(linetype = "dotted") + 
-  ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
+  ggrepel::geom_text_repel(size = 3, 
+                           point.padding = 0.5, 
+                           segment.alpha = 0, 
+                           color = "grey50"
+                           ) +
   labs(x = "Log RR of AGB", y = "Log RR of BGB") +
   theme_classic()
 
