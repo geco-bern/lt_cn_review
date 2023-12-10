@@ -282,15 +282,18 @@ df0 <- df_mesi %>%
   filter(npk == "_100") |> 
   
   ## only experiments conducted in the field
-  filter(experiment_type == "field")
+  filter(experiment_type == "field") |> 
+  
+  ## exclude data where N-fertilisation levels are very large 
+  filter(n_t <= 30)
 
-## Data subsetting
-use_exp <- df0 %>% 
-  filter(!is.na(sampling_year)) %>% 
-  group_by(exp) %>% 
-  summarise(nyears = max(sampling_year)) %>% 
-  filter(nyears >= 3) %>% 
-  pull(exp)
+# ## Data subsetting
+# use_exp <- df0 %>% 
+#   filter(!is.na(sampling_year)) %>% 
+#   group_by(exp) %>% 
+#   summarise(nyears = max(sampling_year)) %>% 
+#   filter(nyears >= 3) %>% 
+#   pull(exp)
 
 # df1 <- df0 %>%
 #   filter(exp %in% use_exp)
@@ -363,7 +366,8 @@ Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Laj
 ```{r, warning=FALSE}
 df3 <- df2 %>%
   
-  ## keep only essential variables and drop rows containing missing values for essential variables
+  ## keep only essential variables and drop rows containing missing values for 
+  ## essential variables
   select(id, duplicate_id, exp, myvar, treatment, sampling_year, 
          x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
   
@@ -574,29 +578,41 @@ df4_agb_bnpp <- df4_combined %>%
 ## add standard error 
 df4_agb_bnpp <- df4_combined %>% 
   filter(myvar %in% c("agb", "bgb")) %>% 
-  select(exp, myvar, logr_se) %>%
-  tidyr::spread( myvar, logr_se ) %>% 
-  rename(se_agb = agb, se_bgb = bgb) %>%
-  right_join(df4_agb_bnpp, by = "exp") %>% 
+  select(exp, 
+         myvar, 
+         logr_se) %>%
+  tidyr::spread( myvar, 
+                 logr_se ) %>% 
+  rename(se_agb = agb, 
+         se_bgb = bgb) %>%
+  right_join(
+    df4_agb_bnpp, 
+    by = "exp"
+    ) %>% 
   mutate(se = se_agb * se_bgb)
 
 gg_nfert_cpl_agb_bgb_mesinutnet <- df4_agb_bnpp %>% 
-  ggplot(aes(x = bgb, y = agb, label = exp)) +
+  ggplot(aes(x = bgb, 
+             y = agb, 
+             label = exp)) +
   geom_point(aes(size =  1/se),
-             fill = "royalblue", 
-             color = "royalblue4", 
+             fill = "royalblue",
+             color = "royalblue4",
              alpha = 0.6,
              show.legend = FALSE,
              shape = 21) +
-  xlim(0, 0.6) + 
-  ylim(0, 0.6) +
+  xlim(-1, 1.5) +
+  ylim(-1, 1.5) +
   geom_abline(linetype = "dotted") + 
   ggrepel::geom_text_repel(size = 3, 
                            point.padding = 0.5, 
                            segment.alpha = 0, 
                            color = "grey50"
                            ) +
-  labs(x = "Log RR of AGB", y = "Log RR of BGB") +
+  labs(x = "Log RR of BGB", 
+       y = "Log RR of AGB",
+       title = "Response to N",
+       subtitle = "MESI + NutNet data") +
   theme_classic()
 
 saveRDS(gg_nfert_cpl_agb_bgb_mesinutnet, 

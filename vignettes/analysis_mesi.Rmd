@@ -674,16 +674,17 @@ gg_eco2_cpl_agb_bgb_mesi <- df5_agb_bnpp %>%
              show.legend = FALSE,
              shape = 21
              ) +
-  xlim(0, 1.5) + 
-  ylim(0, 1.5) +
+  xlim(-0.5, 3.2) +
+  ylim(-0.5, 3.2) +
   geom_abline(linetype = "dotted") + 
   ggrepel::geom_text_repel(size = 3, 
                            point.padding = 0.5, 
                            segment.alpha = 0, 
                            color = "grey50") +
   labs(x = "Normalised log RR of BGB", 
-       y = "Normalised log RR of AGB", 
-       size = expression(paste("Error"^{-1}))) +
+       y = "Normalised log RR of AGB",
+       title = expression("Response to CO"[2]),
+       subtitle = "MESI data") +
   theme_classic()
 
 saveRDS(gg_eco2_cpl_agb_bgb_mesi, 
