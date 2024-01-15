@@ -714,531 +714,531 @@ XXXXXXXXXX
 This is now done in `vignettes/Nfert_merge_MESI_NutNet_eperkowski.Rmd`, combining NutNet and MESI data for N-fertilisation.
 XXXXXXXXXX
 
-Select experiments from which we will use data.
-```{r warning=FALSE}
-df0 <- df |> 
-  
-  ## fertilisation experiments only
-  filter(treatment == "f")|> 
-  
-  ## only experiments conducted in the field
-  filter(experiment_type == "field") |> 
-  
-  ## exclude data where N-fertilisation levels are very large (greater than 50 g_n_per_m2_and_year)
-  filter(n_t <= 30)
-```
-
-Classify into N-fertilisation levels (l1, l2, l3).
-```{r}
-
-# df0 <- df0 |> 
-#   mutate(nfert_lev = ifelse(n_t < 5, "f1",
-#                             ifelse(n_t < 10, "f2",
-#                                    ifelse(n_t < 20, "f3",
-#                                           ifelse(n_t < 30, "f4",
-#                                                  ifelse(n_t < 40, "f5",
-#                                                  "f6"
-#                                                  ))))))
-
-df0 <- df0 |> 
-  mutate(nfert_lev = ifelse(n_t < 10, 
-                            "f1",
-                            ifelse(n_t < 20,
-                                   "f2",
-                                   "f3")))
-```
-
-Distribution of N treatment level
-```{r}
-ggplot(data = df0,
-       aes(x = n_t, y = ..density.., fill = nfert_lev)) +
-  geom_histogram()
-```
-
-
-## Data subsetting
-
-Same as above
-```{r}
-use_exp <- df0 %>% 
-  filter(!is.na(sampling_year)) %>% 
-  group_by(exp) %>% 
-  summarise(nyears = max(sampling_year)) %>% 
-  filter(nyears >= 3) %>% 
-  pull(exp)
-
-# df1 <- df0 %>%
-#   filter(exp %in% use_exp)
-
-## xxx try: do not subset to minimum experiment length
-df1 <- df0
-```
-
-### Select variables
-  
-```{r}
-## select variables only variables as used for CO2 analysis and not provided by Liang et al.
-## create own variable names (myvar), grouping available variables
-use_response <- c("anpp", 
-                  "agb", 
-                  "bgb", 
-                  "fine_root_biomass", 
-                  "root_production", 
-                  "fine_root_production", 
-                  "root_shoot_ratio", 
-                  "soil_no3-n", 
-                  "soil_nh4-n", 
-                  "soil_nh4", 
-                  "soil_no3", 
-                  "soil_solution_nh4", 
-                  "soil_solution_no3", 
-                  "root_n_uptake", 
-                  "root_nh4_uptake", 
-                  "root_no3_uptake"
-                  )
-
-df2 <- df1 %>% 
-
-  filter(response %in% use_response) %>% 
-  mutate(myvar = response) %>% 
-
-  ## variables re-grouped by myself
-  ## variables re-grouped by myself
-  mutate(myvar = ifelse(myvar %in%  c("agb", "agb_coarse"),   "agb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass", "coarse_root_c_stock", "bgb_coarse"), "bgb", myvar)) %>% 
-  # mutate(myvar = ifelse(myvar %in%  c("lai", "lai_max"), "lai", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass"), "bgb", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production", "coarse_root_production"),
-                        "root_production", 
-                        myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", "root_nh4_uptake", "root_no3_uptake"),
-                        "n_uptake", 
-                        myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3"), 
-                        "n_inorg", 
-                        myvar))
-  
-use_vars <- unique(df2$myvar)
-```
-
-
-## Response ratios
-
-Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated).
-```{r}
-df3 <- df2 |> 
-  
-  ## keep only essential variables and drop rows containing missing values for essential variables
-  select(id, duplicate_id, exp, myvar, treatment, sampling_year, n_t, nfert_lev, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>% 
-
-  ## Get logarithm of response ratio and its variance
-  metafor::escalc( 
-    measure = "ROM", 
-    m1i = x_t, sd1i = sd_t, n1i = rep_t, 
-    m2i = x_c, sd2i = sd_c, n2i = rep_c, 
-    data = ., 
-    append = TRUE, 
-    var.names = c("logr", "logr_var") 
-    ) %>% 
-  
-  ## to keep the output readable from the console output
-  as_tibble() |> 
-  
-  ## get standard error
-  mutate(logr_se = sqrt(logr_var) / sqrt(rep_t))
-  
-  # ## normalise by N-fertilisation treatment
-  # mutate(logr = logr / n_t)
-```
-
-## Aggregate by experiment
-
-Aggregate all measurements (multiple years, sampling dates and plots) by experiment and N-fertilisation level and (of course) response variable.
-
-### All pooled 
-
-```{r}
-df4 <- df3 |> 
-
-  # suggested addition by Kevin, email 02.10.2023 10:03
-  dplyr::distinct(duplicate_id, x_t, x_c, .keep_all = TRUE) |> 
-
-  filter(!is.na(logr_var) & !is.na(logr)) |>  
-  
-  # re-create ID (common ID per experiment and response variable)
-  select(-id) %>%
-  mutate(id = paste(exp, myvar, sep = "_XXX_")) %>% 
-  
-  MAd::agg( 
-    id = id, 
-    es = logr, 
-    var = logr_var,
-    cor = 1.0, 
-    method = "BHHR", 
-    data = . 
-    )|> 
-
-  ## to keep the output readable from the console output
-  as_tibble() |> 
-  
-  # separate ID again for ease of data use
-  mutate( id = str_split(id, "_XXX_") ) |> 
-  mutate( exp = purrr::map_chr(id, 1),
-          myvar = purrr::map_chr(id, 2)
-          ) |> 
-  
-  ## rename again
-  select(exp, myvar, logr = es, logr_var = var) |> 
-
-  ## add number of observations (sum of plots and repeated samplings)
-  left_join(
-    df3 %>%
-      group_by(exp, myvar, treatment) |> 
-      summarise(rep_c = sum(rep_c), rep_t = sum(rep_t)),
-    by = c("exp", "myvar")
-  )|> 
-  
-  ## get standard error. Verify if number available observations are identical
-  ## for ambient and elevated. Use N from control here (n_c).
-  mutate( logr_se = sqrt(logr_var) / sqrt(rep_c) )
-```
-
-### By N-fert level
-
-```{r}
-df4b <- df3 |> 
-  
-  filter(!is.na(logr_var) & !is.na(logr)) |>  
-  
-  # re-create ID (common ID per experiment and response variable)
-  select(-id) %>%
-  mutate(id = paste(exp, myvar, nfert_lev, sep = "_XXX_")) %>% 
-  
-  MAd::agg( 
-    id = id, 
-    es = logr, 
-    var = logr_var,
-    cor = 1.0, 
-    method = "BHHR", 
-    data = . 
-    )|> 
-
-  ## to keep the output readable from the console output
-  as_tibble() |> 
-  
-  # separate ID again for ease of data use
-  mutate( id = str_split(id, "_XXX_") ) |> 
-  mutate( exp = purrr::map_chr(id, 1),
-          myvar = purrr::map_chr(id, 2),
-          nfert_lev = purrr::map_chr(id, 3)
-          ) |> 
-  
-  ## rename again
-  select(exp, myvar, nfert_lev, logr = es, logr_var = var) |> 
-
-  ## add number of observations (sum of plots and repeated samplings)
-  left_join(
-    df3 %>%
-      group_by(exp, myvar, nfert_lev, treatment) |> 
-      summarise(rep_c = sum(rep_c), rep_t = sum(rep_t)),
-    by = c("exp", "myvar", "nfert_lev")
-  )|> 
-  
-  ## get standard error. Verify if number available observations are identical
-  ## for ambient and elevated. Use N from control here (n_c).
-  mutate( logr_se = sqrt(logr_var) / sqrt(rep_c) )
-```
-
-## Meta-analysis 
-
-### All pooled 
-
-Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
-```{r}
-source("~/lt_cn_review/R/analyse_meta.R")
-out  <- purrr::map(
-  as.list(use_vars), 
-  ~analyse_meta(df4 |>  
-                  rename(var = myvar), 
-                nam_target = .
-                )
-  )
-names(out) <- use_vars
-df_box <- purrr::map_dfr(out, "df_box") |> 
-  left_join(
-    df4 |> 
-      group_by(myvar) |> 
-      summarise(logr_min = min(logr), logr_max = max(logr)) |> 
-      rename(var = myvar),
-    by = "var"
-  )
-saveRDS(df_box, file = "../data/df_box_mesi_nfert.rds")
-```
-
-### By N-fert level
-
-Separate by fertilisation level
-```{r}
-df4b <- df4b |>
-  filter(myvar %in% use_vars) |> 
-  mutate(var_nfert = paste0(myvar, "_XXX_", nfert_lev))
-
-use_varsb <- df4b |> 
-  pull(var_nfert) |> 
-  unique()
-  
-outb  <- purrr::map(
-  as.list(use_varsb), 
-  ~analyse_meta(df4b |>  
-                  rename(var = var_nfert), 
-                nam_target = .
-                ))
-
-names(outb) <- use_varsb
-df_boxb <- purrr::map_dfr(outb, "df_box") |> 
-  separate(var, 
-           c("var", "nfert_lev"),
-           sep = "_XXX_")
-saveRDS(df_boxb, file = "../data/df_boxb_mesi_nfert.rds")
-```
-
-## Final data size
-
-Number of data points (plot-level measurements) per variable:
-```{r}
-df4 %>% 
-  group_by(myvar) %>% 
-  summarise(n_plots = sum(rep_c, na.rm = TRUE), n_exp = n()) %>% 
-  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
-  knitr::kable()
-```
-
-Number of data points (plot-level measurements) per experiment:
-```{r}
-df4 %>% 
-  group_by(exp) %>% 
-  summarise(n_plots = sum(rep_c), n_exp = n()) %>% 
-  rename_("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>% 
-  knitr::kable()
-```
-
-## Visualisations
-
-### All pooled
-
-Plot dots and my box.
-```{r}
-mylabl = rev(c(
-    "ANPP",
-    "AGB",
-    "Root NPP",
-    "BGB",
-    "Root:shoot",
-    "N uptake",
-    "Inorganic N"
-  ))
-
-df_plot <- df4 %>%
-  drop_na(myvar) %>% 
-  
-  ## give it a nice order (for plotting)
-  mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg"))))
-
-set.seed(2023)
-gg_nfert_mesi <- ggplot(df_plot, aes(x = myvar, y = logr)) +
-  geom_jitter( color = rgb(0,0,0,0.3), 
-               aes( size = 1/logr_se ), 
-               position = position_jitter(w = 0.2, h = 0),
-               show.legend = FALSE
-               ) +
-  geom_crossbar( data = df_box %>% 
-                   drop_na(var), 
-                 aes(x = var, y = middle, ymin = ymin, ymax = ymax),
-                 fill = "royalblue", color = "royalblue4", alpha = 0.6, width = 0.5 ) +
-  geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted" ) +
-  ylim(-1, 3.5) +
-  labs(x = "", 
-       y = "Log response ratio") +
-  coord_flip() +
-  scale_x_discrete("", labels = mylabl) +
-  ggtitle(expression(bold("Response to N")), subtitle = "MESI data") +
-  theme_classic() +
-  theme(
-    plot.title.position = "plot",
-    plot.title = element_text( hjust = 0.98, 
-                               vjust = 0, 
-                               face = 'bold', 
-                               margin = margin(t=20, b=-30),
-                               size = 17
-                               ),
-    plot.subtitle = element_text( hjust = 0.98, 
-                                  vjust = -3, 
-                                  margin = margin(t=20, b=-30),
-                                  size = 15
-                                  )
-  )
-
-
-saveRDS(gg_nfert_mesi, file = paste0(here::here(), "/data/gg_nfert_mesi.rds"))
-
-gg_nfert_mesi
-ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi.pdf"), width = 8, height = 6)
-ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi.png"), width = 8, height = 6)
-```
-
-**Findings:**
-
-- Stronger effect on aboveground biomass than on belowground biomass - this comes out very clearly thanks to lots of data. One outlier of a very negative `agb` response (-> STUDENT?)
-- Reduction in root:shoot ratio - opposite to CO2 response and consistent with expectations from a functional balance.
-- Unsurprisingly, inorganic soil N increases in some cases very strongly, but large variation between experiments.
-- No significant change in root production. Is this reliable? Or just to difficult to measure?  
-
-**Issues:**
-
-- Get more data for root:shoot ratio from N-fertilisation experiments (-> Evan).
-- Get more data for N-inorg. data from N-fertilisation experiments (-> Evan).
-
-```{r}
-for (ivar in use_vars){
-  print(ivar)
-  try(metafor::forest(out[[ivar]]$modl))
-}
-# purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
-```
-
-### By fertilisation level
-
-Plot dots and my box.
-```{r}
-mylabl = rev(c(
-    "ANPP",
-    "AGB",
-    "Root NPP",
-    "BGB",
-    "Root:shoot",
-    "N uptake",
-    "Inorganic N"
-  ))
-
-df_plot <- df4b %>%
-  drop_na(myvar) %>% 
-  
-  ## give it a nice order (for plotting)
-  mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg"))))
-
-gg_nfert_mesi_nfert <- ggplot() +
-  geom_point( data = df_plot,
-               aes(x = myvar, y = logr, size = 1/logr_se, group = nfert_lev),
-               alpha = 0.5,
-               # position = position_jitter(w = 0.2, h = 0),
-               position = position_dodge(0.7),
-               show.legend = FALSE
-               ) +
-  geom_crossbar( data = df_boxb %>% drop_na(var), 
-                 aes(x = var, 
-                     y = middle, 
-                     ymin = ymin, ymax = ymax, 
-                     fill = nfert_lev, 
-                     group = nfert_lev
-                     ),
-                 position = position_dodge(0.7),
-                 color = "black", 
-                 alpha = 0.6,
-                 width = 0.5 
-                 ) +
-  geom_hline( yintercept = 0.0, size = 0.5 ) +
-  labs(title = "Response to N-fertilisation",
-       subtitle = "MESI data",
-       x = "", 
-       y = "Log response ratio") +
-  coord_flip() +
-  scale_x_discrete("", labels = mylabl) +
-  scale_fill_viridis_d(name = "Fertilisation \nlevel", labels = c("low", "mid", "high"))
-
-saveRDS(gg_nfert_mesi_nfert, file = paste0(here::here(), "/data/gg_nfert_mesi_nfert.rds"))
-
-gg_nfert_mesi_nfert
-ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi_nfert.pdf"), width = 8, height = 6)
-ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi_nfert.png"), width = 8, height = 6)
-```
-
-
-## Couplings
-
-Plot effect sizes for two different variables against each other, given that data is available for both variables for a given experiment.
-
-### ANPP-root production
-
-```{r}
-## make a wide table with ANPP and BNPP
-df4_anpp_bnpp <- df4 %>% 
-  filter(myvar %in% c("anpp", "root_production")) %>% 
-  select(exp, myvar, logr) %>%
-  tidyr::spread( myvar, logr )
-
-## add standard error 
-df4_anpp_bnpp <- df4 %>% 
-  filter(myvar %in% c("anpp", "root_production")) %>% 
-  select(exp, myvar, logr_se) %>%
-  tidyr::spread( myvar, logr_se ) %>% 
-  rename(se_anpp = anpp, se_root_production = root_production) %>%
-  right_join(df4_anpp_bnpp, by = "exp") %>% 
-  mutate(se = se_anpp * se_root_production)
-
-df4_anpp_bnpp %>% 
-  ggplot(aes(x = anpp, y = root_production, label = exp)) +
-  geom_point(aes(size =  1/se), color = "tomato") +
-  xlim(0, 0.8) + ylim(0, 0.8) +
-  geom_abline(linetype = "dotted") + 
-  ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(x = "Log RR of ANPP", y = "Log RR of root production", size = expression(paste("Error"^{-1}))) +
-  theme_classic()
-```
-
-**Issues:**
-
-- Not enough data. Drop this analysis.
-
-
-### AGB - BGB
-
-```{r}
-## make a wide table with ANPP and BNPP
-df4_agb_bnpp <- df4 %>% 
-  filter(myvar %in% c("agb", "bgb")) %>% 
-  select(exp, myvar, logr) %>%
-  tidyr::spread( myvar, logr )
-
-## add standard error 
-df4_agb_bnpp <- df4 %>% 
-  filter(myvar %in% c("agb", "bgb")) %>% 
-  select(exp, myvar, logr_se) %>%
-  tidyr::spread( myvar, logr_se ) %>% 
-  rename(se_agb = agb, se_bgb = bgb) %>%
-  right_join(df4_agb_bnpp, by = "exp") %>% 
-  mutate(se = se_agb * se_bgb)
-
-gg_nfert_cpl_agb_bgb_mesi <- df4_agb_bnpp %>% 
-  ggplot(aes(x = bgb, y = agb, label = exp)) +
-  geom_point(aes(size =  1/se), color = rgb(0,0,0,0.5), show.legend = FALSE) +
-  xlim(0, 0.6) + ylim(0, 0.6) +
-  geom_abline(linetype = "dotted") + 
-  ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") +
-  labs(x = "Log RR of BGB", 
-       y = "Log RR of AGB") +
-  theme_classic()
-
-saveRDS(gg_nfert_cpl_agb_bgb_mesi, 
-        file = paste0(here::here(), "/data/gg_nfert_cpl_agb_bgb_mesi.rds"))
-
-gg_nfert_cpl_agb_bgb_mesi
-ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesi.pdf"), width = 6, height = 6)
-ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesi.png"), width = 6, height = 6)
-```
-
-**Issues:**
-
-- Very few data on belowground biomass response. No estimates available from other experiments, e.g., from NutNet (-> Evan)
+<!-- Select experiments from which we will use data. -->
+<!-- ```{r warning=FALSE} -->
+<!-- df0 <- df |>  -->
+
+<!--   ## fertilisation experiments only -->
+<!--   filter(treatment == "f")|>  -->
+
+<!--   ## only experiments conducted in the field -->
+<!--   filter(experiment_type == "field") |>  -->
+
+<!--   ## exclude data where N-fertilisation levels are very large (greater than 50 g_n_per_m2_and_year) -->
+<!--   filter(n_t <= 30) -->
+<!-- ``` -->
+
+<!-- Classify into N-fertilisation levels (l1, l2, l3). -->
+<!-- ```{r} -->
+
+<!-- # df0 <- df0 |>  -->
+<!-- #   mutate(nfert_lev = ifelse(n_t < 5, "f1", -->
+<!-- #                             ifelse(n_t < 10, "f2", -->
+<!-- #                                    ifelse(n_t < 20, "f3", -->
+<!-- #                                           ifelse(n_t < 30, "f4", -->
+<!-- #                                                  ifelse(n_t < 40, "f5", -->
+<!-- #                                                  "f6" -->
+<!-- #                                                  )))))) -->
+
+<!-- df0 <- df0 |>  -->
+<!--   mutate(nfert_lev = ifelse(n_t < 10,  -->
+<!--                             "f1", -->
+<!--                             ifelse(n_t < 20, -->
+<!--                                    "f2", -->
+<!--                                    "f3"))) -->
+<!-- ``` -->
+
+<!-- Distribution of N treatment level -->
+<!-- ```{r} -->
+<!-- ggplot(data = df0, -->
+<!--        aes(x = n_t, y = ..density.., fill = nfert_lev)) + -->
+<!--   geom_histogram() -->
+<!-- ``` -->
+
+
+<!-- ## Data subsetting -->
+
+<!-- Same as above -->
+<!-- ```{r} -->
+<!-- use_exp <- df0 %>%  -->
+<!--   filter(!is.na(sampling_year)) %>%  -->
+<!--   group_by(exp) %>%  -->
+<!--   summarise(nyears = max(sampling_year)) %>%  -->
+<!--   filter(nyears >= 3) %>%  -->
+<!--   pull(exp) -->
+
+<!-- # df1 <- df0 %>% -->
+<!-- #   filter(exp %in% use_exp) -->
+
+<!-- ## xxx try: do not subset to minimum experiment length -->
+<!-- df1 <- df0 -->
+<!-- ``` -->
+
+<!-- ### Select variables -->
+
+<!-- ```{r} -->
+<!-- ## select variables only variables as used for CO2 analysis and not provided by Liang et al. -->
+<!-- ## create own variable names (myvar), grouping available variables -->
+<!-- use_response <- c("anpp",  -->
+<!--                   "agb",  -->
+<!--                   "bgb",  -->
+<!--                   "fine_root_biomass",  -->
+<!--                   "root_production",  -->
+<!--                   "fine_root_production",  -->
+<!--                   "root_shoot_ratio",  -->
+<!--                   "soil_no3-n",  -->
+<!--                   "soil_nh4-n",  -->
+<!--                   "soil_nh4",  -->
+<!--                   "soil_no3",  -->
+<!--                   "soil_solution_nh4",  -->
+<!--                   "soil_solution_no3",  -->
+<!--                   "root_n_uptake",  -->
+<!--                   "root_nh4_uptake",  -->
+<!--                   "root_no3_uptake" -->
+<!--                   ) -->
+
+<!-- df2 <- df1 %>%  -->
+
+<!--   filter(response %in% use_response) %>%  -->
+<!--   mutate(myvar = response) %>%  -->
+
+<!--   ## variables re-grouped by myself -->
+<!--   ## variables re-grouped by myself -->
+<!--   mutate(myvar = ifelse(myvar %in%  c("agb", "agb_coarse"),   "agb", myvar)) %>%  -->
+<!--   mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass", "coarse_root_c_stock", "bgb_coarse"), "bgb", myvar)) %>%  -->
+<!--   # mutate(myvar = ifelse(myvar %in%  c("lai", "lai_max"), "lai", myvar)) %>%  -->
+<!--   mutate(myvar = ifelse(myvar %in%  c("bgb", "fine_root_biomass"), "bgb", myvar)) %>%  -->
+<!--   mutate(myvar = ifelse(myvar %in%  c("root_production", "fine_root_production", "coarse_root_production"), -->
+<!--                         "root_production",  -->
+<!--                         myvar)) %>%  -->
+<!--   mutate(myvar = ifelse(myvar %in%  c("root_n_uptake", "root_nh4_uptake", "root_no3_uptake"), -->
+<!--                         "n_uptake",  -->
+<!--                         myvar)) %>%  -->
+<!--   mutate(myvar = ifelse(myvar %in%  c("soil_no3-n", "soil_nh4-n", "soil_nh4", "soil_no3", "soil_solution_nh4", "soil_solution_no3"),  -->
+<!--                         "n_inorg",  -->
+<!--                         myvar)) -->
+
+<!-- use_vars <- unique(df2$myvar) -->
+<!-- ``` -->
+
+
+<!-- ## Response ratios -->
+
+<!-- Calculate `"ROM"` - the log transformed ratio of means (Hedges et al., 1999; Lajeunesse, 2011) for each observation pair (ambient and elevated). -->
+<!-- ```{r} -->
+<!-- df3 <- df2 |>  -->
+
+<!--   ## keep only essential variables and drop rows containing missing values for essential variables -->
+<!--   select(id, duplicate_id, exp, myvar, treatment, sampling_year, n_t, nfert_lev, x_t, x_c, sd_t, sd_c, rep_t, rep_c) %>%  -->
+
+<!--   ## Get logarithm of response ratio and its variance -->
+<!--   metafor::escalc(  -->
+<!--     measure = "ROM",  -->
+<!--     m1i = x_t, sd1i = sd_t, n1i = rep_t,  -->
+<!--     m2i = x_c, sd2i = sd_c, n2i = rep_c,  -->
+<!--     data = .,  -->
+<!--     append = TRUE,  -->
+<!--     var.names = c("logr", "logr_var")  -->
+<!--     ) %>%  -->
+
+<!--   ## to keep the output readable from the console output -->
+<!--   as_tibble() |>  -->
+
+<!--   ## get standard error -->
+<!--   mutate(logr_se = sqrt(logr_var) / sqrt(rep_t)) -->
+
+<!--   # ## normalise by N-fertilisation treatment -->
+<!--   # mutate(logr = logr / n_t) -->
+<!-- ``` -->
+
+<!-- ## Aggregate by experiment -->
+
+<!-- Aggregate all measurements (multiple years, sampling dates and plots) by experiment and N-fertilisation level and (of course) response variable. -->
+
+<!-- ### All pooled  -->
+
+<!-- ```{r} -->
+<!-- df4 <- df3 |>  -->
+
+<!--   # suggested addition by Kevin, email 02.10.2023 10:03 -->
+<!--   dplyr::distinct(duplicate_id, x_t, x_c, .keep_all = TRUE) |>  -->
+
+<!--   filter(!is.na(logr_var) & !is.na(logr)) |>   -->
+
+<!--   # re-create ID (common ID per experiment and response variable) -->
+<!--   select(-id) %>% -->
+<!--   mutate(id = paste(exp, myvar, sep = "_XXX_")) %>%  -->
+
+<!--   MAd::agg(  -->
+<!--     id = id,  -->
+<!--     es = logr,  -->
+<!--     var = logr_var, -->
+<!--     cor = 1.0,  -->
+<!--     method = "BHHR",  -->
+<!--     data = .  -->
+<!--     )|>  -->
+
+<!--   ## to keep the output readable from the console output -->
+<!--   as_tibble() |>  -->
+
+<!--   # separate ID again for ease of data use -->
+<!--   mutate( id = str_split(id, "_XXX_") ) |>  -->
+<!--   mutate( exp = purrr::map_chr(id, 1), -->
+<!--           myvar = purrr::map_chr(id, 2) -->
+<!--           ) |>  -->
+
+<!--   ## rename again -->
+<!--   select(exp, myvar, logr = es, logr_var = var) |>  -->
+
+<!--   ## add number of observations (sum of plots and repeated samplings) -->
+<!--   left_join( -->
+<!--     df3 %>% -->
+<!--       group_by(exp, myvar, treatment) |>  -->
+<!--       summarise(rep_c = sum(rep_c), rep_t = sum(rep_t)), -->
+<!--     by = c("exp", "myvar") -->
+<!--   )|>  -->
+
+<!--   ## get standard error. Verify if number available observations are identical -->
+<!--   ## for ambient and elevated. Use N from control here (n_c). -->
+<!--   mutate( logr_se = sqrt(logr_var) / sqrt(rep_c) ) -->
+<!-- ``` -->
+
+<!-- ### By N-fert level -->
+
+<!-- ```{r} -->
+<!-- df4b <- df3 |>  -->
+
+<!--   filter(!is.na(logr_var) & !is.na(logr)) |>   -->
+
+<!--   # re-create ID (common ID per experiment and response variable) -->
+<!--   select(-id) %>% -->
+<!--   mutate(id = paste(exp, myvar, nfert_lev, sep = "_XXX_")) %>%  -->
+
+<!--   MAd::agg(  -->
+<!--     id = id,  -->
+<!--     es = logr,  -->
+<!--     var = logr_var, -->
+<!--     cor = 1.0,  -->
+<!--     method = "BHHR",  -->
+<!--     data = .  -->
+<!--     )|>  -->
+
+<!--   ## to keep the output readable from the console output -->
+<!--   as_tibble() |>  -->
+
+<!--   # separate ID again for ease of data use -->
+<!--   mutate( id = str_split(id, "_XXX_") ) |>  -->
+<!--   mutate( exp = purrr::map_chr(id, 1), -->
+<!--           myvar = purrr::map_chr(id, 2), -->
+<!--           nfert_lev = purrr::map_chr(id, 3) -->
+<!--           ) |>  -->
+
+<!--   ## rename again -->
+<!--   select(exp, myvar, nfert_lev, logr = es, logr_var = var) |>  -->
+
+<!--   ## add number of observations (sum of plots and repeated samplings) -->
+<!--   left_join( -->
+<!--     df3 %>% -->
+<!--       group_by(exp, myvar, nfert_lev, treatment) |>  -->
+<!--       summarise(rep_c = sum(rep_c), rep_t = sum(rep_t)), -->
+<!--     by = c("exp", "myvar", "nfert_lev") -->
+<!--   )|>  -->
+
+<!--   ## get standard error. Verify if number available observations are identical -->
+<!--   ## for ambient and elevated. Use N from control here (n_c). -->
+<!--   mutate( logr_se = sqrt(logr_var) / sqrt(rep_c) ) -->
+<!-- ``` -->
+
+<!-- ## Meta-analysis  -->
+
+<!-- ### All pooled  -->
+
+<!-- Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts. -->
+<!-- ```{r} -->
+<!-- source("~/lt_cn_review/R/analyse_meta.R") -->
+<!-- out  <- purrr::map( -->
+<!--   as.list(use_vars),  -->
+<!--   ~analyse_meta(df4 |>   -->
+<!--                   rename(var = myvar),  -->
+<!--                 nam_target = . -->
+<!--                 ) -->
+<!--   ) -->
+<!-- names(out) <- use_vars -->
+<!-- df_box <- purrr::map_dfr(out, "df_box") |>  -->
+<!--   left_join( -->
+<!--     df4 |>  -->
+<!--       group_by(myvar) |>  -->
+<!--       summarise(logr_min = min(logr), logr_max = max(logr)) |>  -->
+<!--       rename(var = myvar), -->
+<!--     by = "var" -->
+<!--   ) -->
+<!-- saveRDS(df_box, file = "../data/df_box_mesi_nfert.rds") -->
+<!-- ``` -->
+
+<!-- ### By N-fert level -->
+
+<!-- Separate by fertilisation level -->
+<!-- ```{r} -->
+<!-- df4b <- df4b |> -->
+<!--   filter(myvar %in% use_vars) |>  -->
+<!--   mutate(var_nfert = paste0(myvar, "_XXX_", nfert_lev)) -->
+
+<!-- use_varsb <- df4b |>  -->
+<!--   pull(var_nfert) |>  -->
+<!--   unique() -->
+
+<!-- outb  <- purrr::map( -->
+<!--   as.list(use_varsb),  -->
+<!--   ~analyse_meta(df4b |>   -->
+<!--                   rename(var = var_nfert),  -->
+<!--                 nam_target = . -->
+<!--                 )) -->
+
+<!-- names(outb) <- use_varsb -->
+<!-- df_boxb <- purrr::map_dfr(outb, "df_box") |>  -->
+<!--   separate(var,  -->
+<!--            c("var", "nfert_lev"), -->
+<!--            sep = "_XXX_") -->
+<!-- saveRDS(df_boxb, file = "../data/df_boxb_mesi_nfert.rds") -->
+<!-- ``` -->
+
+<!-- ## Final data size -->
+
+<!-- Number of data points (plot-level measurements) per variable: -->
+<!-- ```{r} -->
+<!-- df4 %>%  -->
+<!--   group_by(myvar) %>%  -->
+<!--   summarise(n_plots = sum(rep_c, na.rm = TRUE), n_exp = n()) %>%  -->
+<!--   rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>%  -->
+<!--   knitr::kable() -->
+<!-- ``` -->
+
+<!-- Number of data points (plot-level measurements) per experiment: -->
+<!-- ```{r} -->
+<!-- df4 %>%  -->
+<!--   group_by(exp) %>%  -->
+<!--   summarise(n_plots = sum(rep_c), n_exp = n()) %>%  -->
+<!--   rename_("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>%  -->
+<!--   knitr::kable() -->
+<!-- ``` -->
+
+<!-- ## Visualisations -->
+
+<!-- ### All pooled -->
+
+<!-- Plot dots and my box. -->
+<!-- ```{r} -->
+<!-- mylabl = rev(c( -->
+<!--     "ANPP", -->
+<!--     "AGB", -->
+<!--     "Root NPP", -->
+<!--     "BGB", -->
+<!--     "Root:shoot", -->
+<!--     "N uptake", -->
+<!--     "Inorganic N" -->
+<!--   )) -->
+
+<!-- df_plot <- df4 %>% -->
+<!--   drop_na(myvar) %>%  -->
+
+<!--   ## give it a nice order (for plotting) -->
+<!--   mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) -->
+
+<!-- set.seed(2023) -->
+<!-- gg_nfert_mesi <- ggplot(df_plot, aes(x = myvar, y = logr)) + -->
+<!--   geom_jitter( color = rgb(0,0,0,0.3),  -->
+<!--                aes( size = 1/logr_se ),  -->
+<!--                position = position_jitter(w = 0.2, h = 0), -->
+<!--                show.legend = FALSE -->
+<!--                ) + -->
+<!--   geom_crossbar( data = df_box %>%  -->
+<!--                    drop_na(var),  -->
+<!--                  aes(x = var, y = middle, ymin = ymin, ymax = ymax), -->
+<!--                  fill = "royalblue", color = "royalblue4", alpha = 0.6, width = 0.5 ) + -->
+<!--   geom_hline( yintercept = 0.0, size = 0.5, linetype = "dotted" ) + -->
+<!--   ylim(-1, 3.5) + -->
+<!--   labs(x = "",  -->
+<!--        y = "Log response ratio") + -->
+<!--   coord_flip() + -->
+<!--   scale_x_discrete("", labels = mylabl) + -->
+<!--   ggtitle(expression(bold("Response to N")), subtitle = "MESI data") + -->
+<!--   theme_classic() + -->
+<!--   theme( -->
+<!--     plot.title.position = "plot", -->
+<!--     plot.title = element_text( hjust = 0.98,  -->
+<!--                                vjust = 0,  -->
+<!--                                face = 'bold',  -->
+<!--                                margin = margin(t=20, b=-30), -->
+<!--                                size = 17 -->
+<!--                                ), -->
+<!--     plot.subtitle = element_text( hjust = 0.98,  -->
+<!--                                   vjust = -3,  -->
+<!--                                   margin = margin(t=20, b=-30), -->
+<!--                                   size = 15 -->
+<!--                                   ) -->
+<!--   ) -->
+
+
+<!-- saveRDS(gg_nfert_mesi, file = paste0(here::here(), "/data/gg_nfert_mesi.rds")) -->
+
+<!-- gg_nfert_mesi -->
+<!-- ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi.pdf"), width = 8, height = 6) -->
+<!-- ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi.png"), width = 8, height = 6) -->
+<!-- ``` -->
+
+<!-- **Findings:** -->
+
+<!-- - Stronger effect on aboveground biomass than on belowground biomass - this comes out very clearly thanks to lots of data. One outlier of a very negative `agb` response (-> STUDENT?) -->
+<!-- - Reduction in root:shoot ratio - opposite to CO2 response and consistent with expectations from a functional balance. -->
+<!-- - Unsurprisingly, inorganic soil N increases in some cases very strongly, but large variation between experiments. -->
+<!-- - No significant change in root production. Is this reliable? Or just to difficult to measure?   -->
+
+<!-- **Issues:** -->
+
+<!-- - Get more data for root:shoot ratio from N-fertilisation experiments (-> Evan). -->
+<!-- - Get more data for N-inorg. data from N-fertilisation experiments (-> Evan). -->
+
+<!-- ```{r} -->
+<!-- for (ivar in use_vars){ -->
+<!--   print(ivar) -->
+<!--   try(metafor::forest(out[[ivar]]$modl)) -->
+<!-- } -->
+<!-- # purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl))) -->
+<!-- ``` -->
+
+<!-- ### By fertilisation level -->
+
+<!-- Plot dots and my box. -->
+<!-- ```{r} -->
+<!-- mylabl = rev(c( -->
+<!--     "ANPP", -->
+<!--     "AGB", -->
+<!--     "Root NPP", -->
+<!--     "BGB", -->
+<!--     "Root:shoot", -->
+<!--     "N uptake", -->
+<!--     "Inorganic N" -->
+<!--   )) -->
+
+<!-- df_plot <- df4b %>% -->
+<!--   drop_na(myvar) %>%  -->
+
+<!--   ## give it a nice order (for plotting) -->
+<!--   mutate(myvar = factor(myvar, levels = rev(c("anpp", "agb", "root_production", "bgb", "root_shoot_ratio", "n_uptake", "n_inorg")))) -->
+
+<!-- gg_nfert_mesi_nfert <- ggplot() + -->
+<!--   geom_point( data = df_plot, -->
+<!--                aes(x = myvar, y = logr, size = 1/logr_se, group = nfert_lev), -->
+<!--                alpha = 0.5, -->
+<!--                # position = position_jitter(w = 0.2, h = 0), -->
+<!--                position = position_dodge(0.7), -->
+<!--                show.legend = FALSE -->
+<!--                ) + -->
+<!--   geom_crossbar( data = df_boxb %>% drop_na(var),  -->
+<!--                  aes(x = var,  -->
+<!--                      y = middle,  -->
+<!--                      ymin = ymin, ymax = ymax,  -->
+<!--                      fill = nfert_lev,  -->
+<!--                      group = nfert_lev -->
+<!--                      ), -->
+<!--                  position = position_dodge(0.7), -->
+<!--                  color = "black",  -->
+<!--                  alpha = 0.6, -->
+<!--                  width = 0.5  -->
+<!--                  ) + -->
+<!--   geom_hline( yintercept = 0.0, size = 0.5 ) + -->
+<!--   labs(title = "Response to N-fertilisation", -->
+<!--        subtitle = "MESI data", -->
+<!--        x = "",  -->
+<!--        y = "Log response ratio") + -->
+<!--   coord_flip() + -->
+<!--   scale_x_discrete("", labels = mylabl) + -->
+<!--   scale_fill_viridis_d(name = "Fertilisation \nlevel", labels = c("low", "mid", "high")) -->
+
+<!-- saveRDS(gg_nfert_mesi_nfert, file = paste0(here::here(), "/data/gg_nfert_mesi_nfert.rds")) -->
+
+<!-- gg_nfert_mesi_nfert -->
+<!-- ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi_nfert.pdf"), width = 8, height = 6) -->
+<!-- ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_mesi_nfert.png"), width = 8, height = 6) -->
+<!-- ``` -->
+
+
+<!-- ## Couplings -->
+
+<!-- Plot effect sizes for two different variables against each other, given that data is available for both variables for a given experiment. -->
+
+<!-- ### ANPP-root production -->
+
+<!-- ```{r} -->
+<!-- ## make a wide table with ANPP and BNPP -->
+<!-- df4_anpp_bnpp <- df4 %>%  -->
+<!--   filter(myvar %in% c("anpp", "root_production")) %>%  -->
+<!--   select(exp, myvar, logr) %>% -->
+<!--   tidyr::spread( myvar, logr ) -->
+
+<!-- ## add standard error  -->
+<!-- df4_anpp_bnpp <- df4 %>%  -->
+<!--   filter(myvar %in% c("anpp", "root_production")) %>%  -->
+<!--   select(exp, myvar, logr_se) %>% -->
+<!--   tidyr::spread( myvar, logr_se ) %>%  -->
+<!--   rename(se_anpp = anpp, se_root_production = root_production) %>% -->
+<!--   right_join(df4_anpp_bnpp, by = "exp") %>%  -->
+<!--   mutate(se = se_anpp * se_root_production) -->
+
+<!-- df4_anpp_bnpp %>%  -->
+<!--   ggplot(aes(x = anpp, y = root_production, label = exp)) + -->
+<!--   geom_point(aes(size =  1/se), color = "tomato") + -->
+<!--   xlim(0, 0.8) + ylim(0, 0.8) + -->
+<!--   geom_abline(linetype = "dotted") +  -->
+<!--   ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") + -->
+<!--   labs(x = "Log RR of ANPP", y = "Log RR of root production", size = expression(paste("Error"^{-1}))) + -->
+<!--   theme_classic() -->
+<!-- ``` -->
+
+<!-- **Issues:** -->
+
+<!-- - Not enough data. Drop this analysis. -->
+
+
+<!-- ### AGB - BGB -->
+
+<!-- ```{r} -->
+<!-- ## make a wide table with ANPP and BNPP -->
+<!-- df4_agb_bnpp <- df4 %>%  -->
+<!--   filter(myvar %in% c("agb", "bgb")) %>%  -->
+<!--   select(exp, myvar, logr) %>% -->
+<!--   tidyr::spread( myvar, logr ) -->
+
+<!-- ## add standard error  -->
+<!-- df4_agb_bnpp <- df4 %>%  -->
+<!--   filter(myvar %in% c("agb", "bgb")) %>%  -->
+<!--   select(exp, myvar, logr_se) %>% -->
+<!--   tidyr::spread( myvar, logr_se ) %>%  -->
+<!--   rename(se_agb = agb, se_bgb = bgb) %>% -->
+<!--   right_join(df4_agb_bnpp, by = "exp") %>%  -->
+<!--   mutate(se = se_agb * se_bgb) -->
+
+<!-- gg_nfert_cpl_agb_bgb_mesi <- df4_agb_bnpp %>%  -->
+<!--   ggplot(aes(x = bgb, y = agb, label = exp)) + -->
+<!--   geom_point(aes(size =  1/se), color = rgb(0,0,0,0.5), show.legend = FALSE) + -->
+<!--   xlim(0, 0.6) + ylim(0, 0.6) + -->
+<!--   geom_abline(linetype = "dotted") +  -->
+<!--   ggrepel::geom_text_repel(size = 3, point.padding = 0.5, segment.alpha = 0, color = "grey50") + -->
+<!--   labs(x = "Log RR of BGB",  -->
+<!--        y = "Log RR of AGB") + -->
+<!--   theme_classic() -->
+
+<!-- saveRDS(gg_nfert_cpl_agb_bgb_mesi,  -->
+<!--         file = paste0(here::here(), "/data/gg_nfert_cpl_agb_bgb_mesi.rds")) -->
+
+<!-- gg_nfert_cpl_agb_bgb_mesi -->
+<!-- ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesi.pdf"), width = 6, height = 6) -->
+<!-- ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesi.png"), width = 6, height = 6) -->
+<!-- ``` -->
+
+<!-- **Issues:** -->
+
+<!-- - Very few data on belowground biomass response. No estimates available from other experiments, e.g., from NutNet (-> Evan) -->
 
 ## Publication figure
 

@@ -1,6 +1,6 @@
 ---
-title: "Merge NutNet data into MESI"
-author: "Evan Perkowski"
+title: "Response to N-fert., using combined NutNet + MESI data"
+author: "Evan Perkowski and Beni Stocker"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -31,7 +31,7 @@ df_nutnet <- read_csv(paste0(here::here(), "/data/Cleland_2019_data.csv")) %>%
          root_shoot_ratio = bgb / agb)
 ```
 
-# Cleland et al. (2019)
+# NutNet data from Cleland et al. (2019)
 
 Clean data and calculate log RR for root mass fraction, belowground biomass, aboveground biomass, and root:shoot ratio for each site in a single step
 
@@ -496,7 +496,9 @@ df4_combined %>%
 ```
 
 
-## Plots
+# Publication figure
+
+## Response ratio by variable
 
 ```{r, warning=FALSE}
 mylabl = rev(c(
@@ -622,13 +624,3 @@ gg_nfert_cpl_agb_bgb_mesinutnet
 ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesinutnet.pdf"), width = 6, height = 6)
 ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesinutnet.png"), width = 6, height = 6)
 ```
-
-
-
-
-
-
-
-
-
-

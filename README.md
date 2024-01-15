@@ -12,11 +12,11 @@ Done in a separate GitHub repository: `stineb/dgvm_analyses`, using file `terr_s
 
 ## Meta-analysis of ecosystem experiments
 
-Using MESI data from eCO2 experiments (all variables): `vignettes/analysis_mesi.Rmd`
+Using MESI data from eCO2 experiments (all variables): `vignettes/analysis_mesi_co2.Rmd` (previously `vignettes/analysis_mesi.Rmd`)
 
-Using MESI + NutNet data from N-fert experiments (subset of variables): `vignettes/Nfert_merge_MESI_NutNet_eperkowski.Rmd`
+Using MESI + NutNet data from N-fert experiments (subset of variables): `vignettes/analysis_mesi_nutnet_nfert.Rmd` (previously `vignettes/Nfert_merge_MESI_NutNet_eperkowski.Rmd`)
 
-Using Liang et al., 2020 data from N-fertilisation experiments (complementary subset of variables): `vignettes/analysis_liang.Rmd`
+Using Liang et al., 2020 data from N-fertilisation experiments (complementary subset of variables): `vignettes/analysis_liang_nfert.Rmd`
 
 Combine plots for publication figure: `vignettes/publication_figures_metaanalysis.Rmd`
 
