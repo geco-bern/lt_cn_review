@@ -26,7 +26,11 @@ Using data from Dong et al., 2022: `vignettes/analysis_leafn_vcmax_field.Rmd`
 
 ## CN-model simulations and evaluation
 
-CN-model simulations are done using a the CN-model, available in a separate GitHub repository (`geco-bern/rsofun`, branch `cnmodel`). Run scripts `analysis/exp_co2_cnmodel.R` and `analysis/exp_nfert_cnmodel.R` to generate model outputs. Then, make a rough "ballpark comparison" of the outputs against data using `vignettes/cnmodel_benchmark_ballpark.Rmd`, and finally the model evaluation against MESI data using `vignettes/comparison_mesi_cnmodel.Rmd`.
+CN-model simulations are done using a the CN-model, available in a separate GitHub repository (`stineb/rsofun`, branch `cnmodel`). Get this and build the rsofun R package to run rsofun for analyses in this repository.
+
+Run scripts `analysis/exp_co2_cnmodel.R` and `analysis/exp_nfert_cnmodel.R` (both in this repository) to generate model outputs. Adjust the file to which outputs are written by modifying the commit code. The commit code should correspond to the latest commit of the rsofun repository, used for running the cnmodel simulations here. Instead of commit code, may also use tags from the rsofun repository.
+
+Then, make a rough "ballpark comparison" of the outputs against data using `vignettes/cnmodel_benchmark_ballpark.Rmd`, and finally the model evaluation against MESI data using `vignettes/comparison_mesi_cnmodel.Rmd`.
 
 ## Additional analyses
 

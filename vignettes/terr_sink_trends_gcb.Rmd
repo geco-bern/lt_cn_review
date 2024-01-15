@@ -1,0 +1,256 @@
+---
+title: "Terrestrial sink trends"
+output: html_document
+date: "2022-09-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(cowplot)
+library(RColorBrewer)
+```
+
+## GCB 2021 / TRENDY v8
+
+Corresponding published article doi: https://doi.org/10.5194/essd-14-1917-2022
+
+Data obtained from: doi:10.18160/gcp-2021
+
+File `data/Global_Carbon_Budget_2021v1.0_tab_terr_sink.csv` is copied from `Global_Carbon_Budget_2021v1.0.xlsx`, tab "Terrestrial Sink" and exported as CSV. 
+
+```{r cars}
+df <- read_csv(here::here("data/Global_Carbon_Budget_2021v1.0_tab_terr_sink.csv"))
+```
+
+Define decades
+```{r pressure, echo=FALSE}
+df <- df |> 
+  mutate(decade = ifelse(Year > 1979 & Year < 1990, 
+                         1980,
+                         ifelse(Year > 1989 & Year < 2000, 1990,
+                                ifelse(Year > 1999 & Year < 2010, 2000,
+                                       ifelse(Year > 2009, 2010, NA)))
+                         ))
+```
+
+Identify models as C-only and C-N models. The table loaded here (`data/model_types_trendy_gcp2021.csv`) is created manually based on information of the corresponding Global Carbon Budget paper (in this case GCB 2021, Friedlingstein et al., 2022 https://essd.copernicus.org/articles/14/1917/2022/) using their Table A.1.
+
+```{r}
+df_models <- df |> 
+  select(-GCB, -mean_models, -sd_models) |> 
+  pivot_longer(cols = c("CABLE-POP",  "CLASSIC",    "CLM5.0",     "DLEM",       "IBIS",       "ISAM",       "ISBA-CTRIP", "JSBACH",     "JULES-ES", "LPJ-GUESS",  "LPJ",        "LPX-Bern",   "OCNv2",      "ORCHIDEE-v3","SDGVM",      "VISIT",      "YIBs"),
+               names_to = "model",
+               values_to = "sland"
+              )
+
+# df_models |> 
+#   select(model) |> 
+#   distinct() |> 
+#   mutate(type = "") |> 
+#   write_csv(file = "data/model_types_trendy_gcp2021.csv")
+
+df_modeltypes <- read_csv(here::here("data/model_types_trendy_gcp2021.csv"))
+
+df_decades <- df_models |> 
+  drop_na() |> 
+  group_by(decade, model) |> 
+  summarise(sland = mean(sland)) |> 
+  left_join(
+    df_modeltypes,
+    by = "model"
+  )
+
+df_models <- df_models |> 
+  left_join(
+    df_modeltypes,
+    by = "model"
+  )
+
+df_decades_obs <- df |> 
+  drop_na() |> 
+  group_by(decade) |> 
+  summarise(sland = mean(GCB))
+```
+
+Plot
+```{r}
+ggplot() +
+  geom_boxplot(data = df_decades, aes(as.factor(decade), sland, fill = type)) +
+  geom_jitter(data = df_decades, aes(as.factor(decade), sland, color = type), width = 0.1) +
+  geom_point(data = df_decades_obs, aes(as.factor(decade), sland), color = "black", size = 5)
+```
+
+```{r}
+df |> 
+  ggplot(aes(Year, GCB)) + 
+  geom_line(color = "grey50") +
+  geom_smooth(method = "lm", color = "black")
+
+tmp <- df_models |> 
+  group_by(Year, type) |> 
+  summarise(sland = mean(sland)) |> 
+  left_join(
+    df_models |> 
+      group_by(Year, type) |> 
+      summarise(sland_min = min(sland)) 
+  ) |> 
+  left_join(
+    df_models |> 
+      group_by(Year, type) |> 
+      summarise(sland_max = max(sland)) 
+  ) |> 
+  bind_rows(
+    df |> 
+      select(Year, sland = GCB) |> 
+      mutate(type = "Obs.")
+  )
+
+vec_types <- unique(tmp$type)
+tmp <- tmp |> 
+  mutate(type = factor(type, 
+                        levels = (c("Obs.", 
+                                    vec_types[-which(vec_types == "Obs.")]))))
+
+colourCount = length(unique(tmp$type))
+getPalette = colorRampPalette(brewer.pal(12, "Paired"))
+set.seed(1982)
+
+# time series
+gg1 <- tmp |> 
+  ggplot(aes(Year, sland, color = type)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_ribbon(aes(x = Year, ymin = sland_min, ymax = sland_max, fill = type), color = NA) +
+  geom_line(size = 0.8) +
+  theme_classic() +
+  scale_color_manual(values = c("black", "tomato", "royalblue"), 
+                     name = "") +
+  scale_fill_manual(values = c(rbeni::add_alpha("black", 0.3), 
+                               rbeni::add_alpha("tomato", 0.3), 
+                               rbeni::add_alpha("royalblue", 0.3)),
+                    name = "") +
+  labs(x = "Year", y = expression(paste("Sink (g C m"^2, "yr"^-1, ")")))
+
+# mean sink
+tmp |> 
+  ungroup() |> 
+  filter(Year %in% 1991:202) |> 
+  summarise(sland = mean(sland))
+
+
+get_trend <- function(adf, year_start){
+  adf <- adf |> 
+    filter(Year >= year_start)
+  linmod <- lm(sland ~ Year, data = adf)
+  sinktrend <- coef(linmod)["Year"]
+  return(sinktrend)
+}
+
+get_iav <- function(adf, year_start){
+  adf <- adf |> 
+    filter(Year >= year_start)
+  linmod <- lm(sland ~ Year, data = adf)
+  iav <- sd(linmod$residuals)
+  return(iav)
+}
+
+get_sland_mean <- function(adf, use_years){
+  adf |> 
+    filter(Year %in% use_years) |> 
+    summarise(sland = mean(sland)) |> 
+    pull(sland)
+}
+
+df_models_trend <- df_models |> 
+  bind_rows(
+    df |> 
+      select(Year, sland = GCB) |> 
+      mutate(model = "obs")
+  ) |> 
+  group_by(model) |> 
+  nest() |> 
+  mutate(trend = purrr::map_dbl(data, ~get_trend(., year_start = 1959)),
+         iav = purrr::map_dbl(data, ~get_iav(., year_start = 1959)),
+         sland_mean = purrr::map_dbl(data, ~get_sland_mean(., use_years = 2011:2020))) |> 
+  left_join(
+    df_modeltypes,
+    by = "model"
+  ) |> 
+  mutate(type = ifelse(is.na(type), "obs", type)) |> 
+  mutate(model = ifelse(model == "obs", "Observations", model)) |> 
+  mutate(type = ifelse(type == "obs", "Obs.", type))
+
+colourCount = length(unique(df_models_trend$model))
+getPalette = colorRampPalette(brewer.pal(12, "Paired"))
+set.seed(1986)
+
+# make long
+df_models_trend_long <- df_models_trend |> 
+  pivot_longer(cols = c(sland_mean, trend, iav),
+               names_to = "metric", 
+               values_to = "value")
+
+# plot with facet
+mylabels = c(
+  sland_mean = "Mean 2011-2020",
+  trend = "Trend 1959-2020"
+  )
+
+gg2 <- df_models_trend_long |> 
+  filter(metric != "iav") |> 
+  mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
+         model = factor(model, 
+                        levels = (c("Observations", 
+                                    df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
+  ggplot(aes(x = type, y = value)) +
+  geom_boxplot(fill = "azure3", outlier.color = "white") +
+  geom_jitter(aes(color = model), width = 0.2, size = 3) + 
+  theme_classic() + 
+  scale_color_manual(values = c("black", sample(getPalette(colourCount)))) +
+  labs(x = "Model type and observations", 
+       y = expression(paste("(g C m"^2, "yr"^-1, ")"))) +
+  facet_wrap(~metric, 
+             scales = "free", 
+             labeller = labeller(metric = mylabels)) +
+  theme(
+    strip.text = element_text(
+      size = 12, hjust = 0
+    ),
+    strip.background = element_rect(
+      color = NA
+    ),
+    legend.title = element_blank()
+  )
+
+cowplot::plot_grid(gg1, gg2, nrow = 2, rel_heights = c(0.8, 1), labels = c("a", "b", "c"))
+ggsave(here::here("fig/sink_trend_trendy.pdf"), width = 1.7*6, height = 1.7*5)
+ggsave(here::here("fig/sink_trend_trendy.png"), width = 1.7*6, height = 1.7*5)
+
+gg1
+ggsave(here::here("fig/sink_trend_trendy_tseries.pdf"), width = 1.7*6, height = 4)
+```
+
+```{r}
+# only boxplot for trend
+set.seed(3)
+gg3 <- df_models_trend_long |> 
+  filter(metric == "trend") |> 
+  mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
+         model = factor(model, 
+                        levels = (c("Observations", 
+                                    df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
+  ggplot(aes(x = type, y = value)) +
+  geom_boxplot(fill = "azure3", outlier.color = "white") +
+  geom_jitter(aes(color = model), width = 0.2, size = 3) + 
+  theme_classic() + 
+  scale_color_manual(values = c("black", sample(getPalette(colourCount)))) +
+  labs(x = "Model type and observations", 
+       y = expression(paste("Sink (g C m"^2, "yr"^-1, ")")),
+       title = "Trend 1959-2020") +
+  theme(
+    legend.title = element_blank()
+  )
+gg3
+ggsave(here::here("fig/sink_trend_trendy_boxplot_trend.pdf"), width = 6, height = 5)
+```
