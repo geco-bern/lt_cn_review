@@ -353,5 +353,5 @@ ggrr <- ggplot() +
 ggsave(paste0(here::here(), "/fig/response_co2_cnmodel_NEW.pdf"))
 
 
-## Write output to file --------------------
-readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_NEW.csv"))
+## Write output to file with commit ID --------------------
+readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))

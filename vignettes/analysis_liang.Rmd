@@ -79,16 +79,9 @@ df <- df %>%
   
   ## to make it comparable, chose only data below 300 kg ha-1 yr-1
   filter(ndep_kg_ha_yr <= 300) |> 
-
-  # ## exclude data where N-fertilisation levels are very large (greater than 500 kg ha-1 yr-1 = 50 g_n_per_m2_and_year)
-  # filter(ndep_kg_ha_yr <= 500) |> 
   
   ## Use only variables that were also used for the MESI-CO2 meta-analysis
   filter(response %in% use_vars)
-
-# ## growth forms in Liang and in MESI
-# df$growthform %>% unique()
-# df$growth_form %>% unique()
 ```
 
 Missing info in Liang et al.:

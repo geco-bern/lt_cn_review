@@ -379,5 +379,5 @@ ggsave(paste0(here::here(), "/fig/response_nfert_cnmodel_NEW.pdf"))
 
 
 ## Write output to file --------------------
-readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert_NEW.csv"))
+readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
 

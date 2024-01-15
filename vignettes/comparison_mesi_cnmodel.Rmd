@@ -36,7 +36,7 @@ df_box_co2 <- read_rds("../data/df_box_mesi_co2.rds")
 
 Add model outputs to this data frame. This is produced with `analysis/exp_co2_cnmodel.R`.
 ```{r}
-df_cnmodel_co2 <- read_csv(paste0(here::here(), "/data/output_cnmodel_co2_NEW.csv"))
+df_cnmodel_co2 <- read_csv(paste0(here::here(), "/data/output_cnmodel_co2_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
 
 ## aggregate before and after
 years_before <- 2007:2009
@@ -171,13 +171,25 @@ df_labels <- tibble(
   ))
 )
 
-gg_mesi_cnmodel_eco2 <- df_box_co2 |> 
+df_plot_co2 <- df_box_co2 |> 
   
   left_join(df_cnmodel_co2_logresponse, by = "var") |> 
   
   ## give it a nice order (for plotting)
   filter(var %in% var_order) |> 
-  mutate(var = factor(var, levels = rev(var_order))) |>
+  mutate(var = factor(var, levels = rev(var_order)))
+
+df_correct <- df_plot_co2 |> 
+  mutate(correct_ci = ifelse(logrr_cnmodel > ymin & logrr_cnmodel < ymax,
+                          TRUE, 
+                          FALSE),
+         correct_all = ifelse(logrr_cnmodel > logr_min & logrr_cnmodel < logr_max,
+                          TRUE, 
+                          FALSE),
+         type = "co2") |> 
+  select(var, type, correct_ci, correct_all)
+
+gg_mesi_cnmodel_eco2 <- df_plot_co2 |>
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -242,7 +254,7 @@ df_box_nfert_liang <- read_rds(paste0(here::here(), "/data/df_box_liang_nfert.rd
 
 Get log response ratios from model outputs. This is produced with `analysis/exp_nfert_cnmodel.R`.
 ```{r}
-df_cnmodel_nfert <- read_csv(paste0(here::here(), "/data/output_cnmodel_nfert_NEW.csv"))
+df_cnmodel_nfert <- read_csv(paste0(here::here(), "/data/output_cnmodel_nfert_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
 
 ## aggregate before and after
 years_before <- 2007:2009
@@ -299,12 +311,27 @@ mylabl = rev(c(
     "Inorganic N"
   ))
 
-gg_mesi_cnmodel_nfert_mesi <- df_box_nfert_mesi |> 
+df_plot_nfert <- df_box_nfert_mesi |> 
   left_join(df_cnmodel_nfert_logresponse, by = "var") |> 
   
   ## give it a nice order (for plotting)
   filter(var %in% var_order) |> 
-  mutate(var = factor(var, levels = rev(var_order))) |>  
+  mutate(var = factor(var, levels = rev(var_order)))
+
+df_correct <- df_correct |> 
+  bind_rows(
+    df_plot_nfert |> 
+      mutate(correct_ci = ifelse(logrr_cnmodel > ymin & logrr_cnmodel < ymax,
+                              TRUE, 
+                              FALSE),
+             correct_all = ifelse(logrr_cnmodel > logr_min & logrr_cnmodel < logr_max,
+                              TRUE, 
+                              FALSE),
+             type = "nfert") |> 
+      select(var, type, correct_ci, correct_all)
+  )
+  
+gg_mesi_cnmodel_nfert_mesi <- df_plot_nfert |>  
   
   ggplot() +
   geom_crossbar(aes(x = var, y = middle, ymin = ymin, ymax = ymax), 
@@ -449,4 +476,8 @@ ggsave(paste0(here::here(), "/fig/combined_metaanalysis_cnmodel.png"), width = 8
 #                    labels = c("a", "b"))
 # ggsave(paste0(here::here(), "/fig/mesi_cnmodel.pdf"), width = 6, height = 8)
 # ggsave(paste0(here::here(), "/fig/mesi_cnmodel.png"), width = 6, height = 8)
+
+df_correct |> 
+  summarise(frac_all = sum(correct_all),
+            frac_ci = sum(correct_ci))
 ```

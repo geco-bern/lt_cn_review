@@ -523,7 +523,7 @@ df_tvals <- tibble(
 
 ```{r}
 var_names <- list(
-  "vcmax" = expression(paste(italic(V)[cmax])),
+  "vcmax" = expression(paste(italic(V)[cmax25])),
   "narea" = expression(paste(italic(N)[area])),
   "nmass" = expression(paste(italic(N)[mass])),
   "lma" = "LMA"
