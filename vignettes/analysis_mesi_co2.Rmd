@@ -42,8 +42,7 @@ Load and interpret MESI data files.
 
 # read data available from https://github.com/MESI-organization/mesi-db
 # IMPORTANT: LOAD DATA FROM REPO AT COMMIT d73bbdb12f469e219e3bb360f4b79fdb0dfa0891 Mon Nov 28 11:37:49 2022 +0100
-df <- read_csv("~/mesi-db_test/data/mesi_main.csv") |> 
-  mutate(across(c(x_c, x_t), as.numeric))
+df <- read_csv("~/mesi-db/data/mesi_main.csv")
 ```
 
 

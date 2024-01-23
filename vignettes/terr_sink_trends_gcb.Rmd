@@ -20,8 +20,32 @@ Data obtained from: doi:10.18160/gcp-2021
 
 File `data/Global_Carbon_Budget_2021v1.0_tab_terr_sink.csv` is copied from `Global_Carbon_Budget_2021v1.0.xlsx`, tab "Terrestrial Sink" and exported as CSV. 
 
+File `data/Global_Carbon_Budget_2021v1.0_tab_gcb.csv` is copied from `Global_Carbon_Budget_2021v1.0.xlsx`, tab "Global Carbon Budget" and exported as CSV. 
+
+(Internal: see also `~/data/globalcarbonproject/gcp-2021/`.)
+
 ```{r cars}
-df <- read_csv(here::here("data/Global_Carbon_Budget_2021v1.0_tab_terr_sink.csv"))
+df_models <- read_csv(here::here("data/Global_Carbon_Budget_2021v1.0_tab_terr_sink.csv"))
+df_gcb <- read_csv(here::here("data/Global_Carbon_Budget_2021v1.0_tab_gcb.csv"))
+```
+
+Get residual sink from the budget, interpreted as the implied land sink. Note that the GCB presents the land sink as the multi-model mean (after accounting for LUC). 
+```{r}
+df_gcb <- df_gcb |> 
+  mutate(s_land_impl = e_ff + e_luc - s_cement - s_ocean - g_atm)
+
+df_gcb |> 
+  pivot_longer(cols = c(s_land, s_land_impl), values_to = "s_land", names_to = "source") |> 
+  ggplot(aes(x = year, y = s_land, color = source)) +
+  geom_line()
+
+# combine
+df <- df_models |> 
+  left_join(
+    df_gcb |> 
+      rename(Year = year),
+    by = "Year"
+  )
 ```
 
 Define decades
@@ -38,21 +62,35 @@ df <- df |>
 Identify models as C-only and C-N models. The table loaded here (`data/model_types_trendy_gcp2021.csv`) is created manually based on information of the corresponding Global Carbon Budget paper (in this case GCB 2021, Friedlingstein et al., 2022 https://essd.copernicus.org/articles/14/1917/2022/) using their Table A.1.
 
 ```{r}
+# data frame in long format
 df_models <- df |> 
   select(-GCB, -mean_models, -sd_models) |> 
-  pivot_longer(cols = c("CABLE-POP",  "CLASSIC",    "CLM5.0",     "DLEM",       "IBIS",       "ISAM",       "ISBA-CTRIP", "JSBACH",     "JULES-ES", "LPJ-GUESS",  "LPJ",        "LPX-Bern",   "OCNv2",      "ORCHIDEE-v3","SDGVM",      "VISIT",      "YIBs"),
+  pivot_longer(cols = c("CABLE-POP",  
+                        "CLASSIC",    
+                        "CLM5.0",     
+                        "DLEM",       
+                        "IBIS",       
+                        "ISAM",       
+                        "ISBA-CTRIP", 
+                        "JSBACH",     
+                        "JULES-ES", 
+                        "LPJ-GUESS",  
+                        "LPJ",        
+                        "LPX-Bern",   
+                        "OCNv2",      
+                        "ORCHIDEE-v3",
+                        "SDGVM",      
+                        "VISIT",      
+                        "YIBs"),
                names_to = "model",
                values_to = "sland"
               )
 
-# df_models |> 
-#   select(model) |> 
-#   distinct() |> 
-#   mutate(type = "") |> 
-#   write_csv(file = "data/model_types_trendy_gcp2021.csv")
-
+# get information on which model is C-only and which model is C-N from manually 
+# created table, based on Table A1 in Friedlingstein et al. 2021
 df_modeltypes <- read_csv(here::here("data/model_types_trendy_gcp2021.csv"))
 
+# aggregate (mean) by decade and model
 df_decades <- df_models |> 
   drop_na() |> 
   group_by(decade, model) |> 
@@ -62,19 +100,21 @@ df_decades <- df_models |>
     by = "model"
   )
 
+# add info on model type to un-aggregated (containing all years) data frame
 df_models <- df_models |> 
   left_join(
     df_modeltypes,
     by = "model"
   )
 
+# aggregate observations (implied land sink) by decade
 df_decades_obs <- df |> 
   drop_na() |> 
   group_by(decade) |> 
-  summarise(sland = mean(GCB))
+  summarise(sland = mean(s_land_impl))
 ```
+## Exploratory plot
 
-Plot
 ```{r}
 ggplot() +
   geom_boxplot(data = df_decades, aes(as.factor(decade), sland, fill = type)) +
@@ -82,37 +122,44 @@ ggplot() +
   geom_point(data = df_decades_obs, aes(as.factor(decade), sland), color = "black", size = 5)
 ```
 
+## Publication figure
 ```{r}
-df |> 
-  ggplot(aes(Year, GCB)) + 
-  geom_line(color = "grey50") +
-  geom_smooth(method = "lm", color = "black")
-
+# re-arrange data for plotting
 tmp <- df_models |> 
+  
+  # aggregate by model type (mean)
   group_by(Year, type) |> 
   summarise(sland = mean(sland)) |> 
+
+  # add aggregated by model type (min)
   left_join(
     df_models |> 
       group_by(Year, type) |> 
       summarise(sland_min = min(sland)) 
   ) |> 
+
+  # add aggregated by model type (max)
   left_join(
     df_models |> 
       group_by(Year, type) |> 
       summarise(sland_max = max(sland)) 
   ) |> 
+
+  # add implied residual sink as "Obs."
   bind_rows(
     df |> 
-      select(Year, sland = GCB) |> 
+      select(Year, sland = s_land_impl) |> 
       mutate(type = "Obs.")
   )
 
+# make model type a factor
 vec_types <- unique(tmp$type)
 tmp <- tmp |> 
   mutate(type = factor(type, 
                         levels = (c("Obs.", 
                                     vec_types[-which(vec_types == "Obs.")]))))
 
+# create colour palette distinguishing models
 colourCount = length(unique(tmp$type))
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 set.seed(1982)
@@ -122,7 +169,7 @@ gg1 <- tmp |>
   ggplot(aes(Year, sland, color = type)) +
   geom_smooth(method = "lm", se = FALSE) +
   geom_ribbon(aes(x = Year, ymin = sland_min, ymax = sland_max, fill = type), color = NA) +
-  geom_line(size = 0.8) +
+  geom_line(linewidth = 0.8) +
   theme_classic() +
   scale_color_manual(values = c("black", "tomato", "royalblue"), 
                      name = "") +
@@ -131,13 +178,6 @@ gg1 <- tmp |>
                                rbeni::add_alpha("royalblue", 0.3)),
                     name = "") +
   labs(x = "Year", y = expression(paste("Sink (g C m"^2, "yr"^-1, ")")))
-
-# mean sink
-tmp |> 
-  ungroup() |> 
-  filter(Year %in% 1991:202) |> 
-  summarise(sland = mean(sland))
-
 
 get_trend <- function(adf, year_start){
   adf <- adf |> 
@@ -165,7 +205,7 @@ get_sland_mean <- function(adf, use_years){
 df_models_trend <- df_models |> 
   bind_rows(
     df |> 
-      select(Year, sland = GCB) |> 
+      select(Year, sland = s_land_impl) |> 
       mutate(model = "obs")
   ) |> 
   group_by(model) |> 
