@@ -11,8 +11,8 @@ library(ingestr)
 pars <- list(
   
   # P-model
-  kphio                 = 0.08,       # setup ORG in Stocker et al. 2020 GMD
-  kphio_par_a           = 0.0,        # set to zero to disable temperature-dependence of kphio
+  kphio                 = 0.06,       # setup ORG in Stocker et al. 2020 GMD
+  kphio_par_a           = -0.001,        # set to zero to disable temperature-dependence of kphio
   kphio_par_b           = 20.0,
   soilm_thetastar       = 0.6 * 240,  # to recover old setup with soil moisture stress
   soilm_betao           = 0.0,
@@ -29,9 +29,9 @@ pars <- list(
   r_sapw                = 2*0.044000,
   exurate               = 0.003000,
   
-  k_decay_leaf          = 1.5,
-  k_decay_root          = 1.5,
-  k_decay_labl          = 1,
+  k_decay_leaf          = 3,
+  k_decay_root          = 3,
+  k_decay_labl          = 3,
   k_decay_sapw          = 0.01,
   
   r_cton_root           = 37.0000,
@@ -330,6 +330,11 @@ gg12 <- output |>
 
 gg9 / gg10 / gg11 / gg12
 
+output |> 
+  as_tibble() |> 
+  ggplot(aes(date, x1)) + 
+  geom_line()
+
 ## CUE
 output |> 
   as_tibble() |> 
@@ -351,6 +356,11 @@ ggplot() +
   # geom_vline(xintercept = 1, linetype = "dotted") +
   geom_vline(xintercept = 0, linetype = "dotted")
 
+ftemp_kphio <- function(temp, a){(1 + a*(temp - 20)^2)}
+
+ggplot() + 
+  geom_function(fun = ftemp_kphio, args = list(a = -0.001)) +
+  xlim(0, 30)
 
 # df <- tibble(
 #   x = 1:15,

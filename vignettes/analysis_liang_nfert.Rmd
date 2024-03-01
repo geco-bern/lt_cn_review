@@ -301,7 +301,7 @@ saveRDS(df_boxb, file = "../data/df_boxb_liang_nfert.rds")
 Plot dots and my box.
 ```{r}
 mylabs <- c(
-  expression(paste(italic("A")[area])),
+  expression(paste(italic("A")[sat])),
   expression(paste(italic("V")[cmax])),
   expression(paste(italic("N")[area])),
   expression(paste(italic("N")[mass])),

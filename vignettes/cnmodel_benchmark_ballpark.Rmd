@@ -22,7 +22,7 @@ library(skimr)
 Outputs are generated with `rsofun/analysis/example_cnmodel_ch_oe1.R`. Copy them to `./data/`. This is for a simulation for FLUXNET site CH-Oe1, a grassland. 
 
 ```{r}
-system("cp ~/rsofun/tmp/output_cnmodel_ch_oe1.rds ../data/")
+system("cp ~/rsofun-stineb/tmp/output_cnmodel_ch_oe1.rds ../data/")
 df_rsofun <- readRDS("../data/output_cnmodel_ch_oe1.rds")
 
 df_rsofun_agg <- df_rsofun |> 
@@ -65,10 +65,12 @@ df2 <- df |>
   filter(woody == "non-woody") |> 
   rename(lma = LMA, narea = Narea, nmass = Nmass, vcmax = vcmax_obs)
 
+# LMA (rsofun output is in gC m-2-leaf, Ning's data is in "mass" = DM?)
 gg1 <- ggplot() +
-  geom_density(aes(lma, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
+  geom_density(aes(lma/2, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  geom_point(aes(x = lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  geom_vline(aes(xintercept = lma), data = df_rsofun_agg, color = "#29a274ff") +
+  # geom_point(aes(x = lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
   labs(x = "LMA") +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
@@ -76,15 +78,17 @@ gg1 <- ggplot() +
 gg2 <- ggplot() +
   geom_density(aes(nmass, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  geom_point(aes(x = narea/lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  geom_vline(aes(xintercept = narea/lma), data = df_rsofun_agg, color = "#29a274ff") +
+  # geom_point(aes(x = narea/lma, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
   labs(x = expression(italic("N")[mass])) +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
 
 gg3 <- ggplot() +
   geom_density(aes(narea, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
+  geom_vline(aes(xintercept = narea), data = df_rsofun_agg, color = "#29a274ff") +
   theme_classic() +
-  geom_point(aes(x = narea, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  # geom_point(aes(x = narea, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
   labs(x = expression(italic("N")[area])) +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
@@ -93,7 +97,8 @@ gg3 <- ggplot() +
 gg4 <- ggplot() +
   geom_density(aes(vcmax, ..density..), data = df2, fill = "#777055ff", color = NA, alpha = 0.5) +
   theme_classic() +
-  geom_point(aes(x = 1e6 * vcmax, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  # geom_point(aes(x = 1e6 * vcmax, y = 0), data = df_rsofun_agg, size = 5, color = "#29a274ff") +
+  geom_vline(aes(xintercept =  1e6 * vcmax), data = df_rsofun_agg, color = "#29a274ff") +
   labs(x = expression(italic("V")[cmax])) +
   coord_cartesian(clip = 'off') +
   scale_y_continuous(expand = c(0, 0))
