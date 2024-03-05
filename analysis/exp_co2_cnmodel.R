@@ -29,12 +29,12 @@ pars <- list(
   r_root                = 2*0.913000,
   r_sapw                = 2*0.044000,
   exurate               = 0.003000,
-  
+
   k_decay_leaf          = 1.90000,
   k_decay_root          = 1.90000,
   k_decay_labl          = 1.90000,
   k_decay_sapw          = 1.90000,
-  
+
   r_cton_root           = 37.0000,
   r_cton_wood           = 100.000,
   r_cton_seed           = 15.0000,
@@ -43,39 +43,39 @@ pars <- list(
   r_n_cw_v              = 0, # assumed that LMA is independent of Vcmax25; previously: 0.1,
   r_ctostructn_leaf     = 1.3 * 45.84125, # see ln_cn_review/vignettes/analysis_leafn_vcmax_field.Rmd, l.699; previously used: 80.0000,
   kbeer                 = 0.500000,
-  
+
   # Phenology (should be PFT-specific)
   gddbase               = 5.0,
   ramp                  = 0.0,
   phentype              = 2.0,
-  
+
   # Soil physics (should be derived from params_soil, fsand, fclay, forg, fgravel)
-  perc_k1               = 5.0,        
-  thdiff_wp             = 0.2,          
+  perc_k1               = 5.0,
+  thdiff_wp             = 0.2,
   thdiff_whc15          = 0.8,
-  thdiff_fc             = 0.4,          
+  thdiff_fc             = 0.4,
   forg                  = 0.01,
-  wbwp                  = 0.029,  
-  por                   = 0.421,    
-  fsand                 = 0.82,      
-  fclay                 = 0.06,      
-  fsilt                 = 0.12,  
-  
+  wbwp                  = 0.029,
+  por                   = 0.421,
+  fsand                 = 0.82,
+  fclay                 = 0.06,
+  fsilt                 = 0.12,
+
   # Water and energy balance
-  kA                    = 107,     
-  kalb_sw               = 0.17,    
-  kalb_vis              = 0.03,    
-  kb                    = 0.20,    
-  kc                    = 0.25,    
-  kCw                   = 1.05,    
-  kd                    = 0.50,    
-  ke                    = 0.0167,  
-  keps                  = 23.44,   
-  kWm                   = 220.0,   
-  kw                    = 0.26,    
+  kA                    = 107,
+  kalb_sw               = 0.17,
+  kalb_vis              = 0.03,
+  kb                    = 0.20,
+  kc                    = 0.25,
+  kCw                   = 1.05,
+  kd                    = 0.50,
+  ke                    = 0.0167,
+  keps                  = 23.44,
+  kWm                   = 220.0,
+  kw                    = 0.26,
   komega                = 283.0,
   maxmeltrate           = 3.0,
-  
+
   # Soil BGC
   klitt_af10            = 1.2,
   klitt_as10            = 0.35,
@@ -88,17 +88,17 @@ pars <- list(
   cton_microb           = 10.0,
   cton_soil             = 9.77,
   fastfrac              = 0.985,
-  
+
   # N uptake
   eff_nup               = 0.0001000,
   minimumcostfix        = 1.000000,
   fixoptimum            = 25.15000,
   a_param_fix           = -3.62000,
   b_param_fix           = 0.270000,
-  
+
   # Inorganic N transformations (re-interpreted for simple ntransform model)
   maxnitr               =  0.000005,
-  
+
   # Inorganic N transformations for full ntransform model (not used in simple model)
   non                   = 0.01,
   n2on                  = 0.0005,
@@ -106,21 +106,25 @@ pars <- list(
   kdoc                  = 17.0,
   docmax                = 1.0,
   dnitr2n2o             = 0.01,
-  
+
   # Additional parameters - previously forgotten
   frac_leaf             = 0.5,           # after wood allocation
   frac_wood             = 0.0,           # highest priority in allocation
   frac_avl_labl         = 0.1,
-  
+
   # for development
   tmppar                = 9999,
-  
+
   # simple N uptake module parameters
   nuptake_kc            = 250,
   nuptake_kv            = 5,
-  nuptake_vmax          = 0.15
+  nuptake_vmax          = 0.15,
   
+  # wood allocation fraction
+  falloc_wood           = 0.0
+
 )
+
 
 ## Forcing ------------------------
 ## add new required columns to forcing 
@@ -350,8 +354,9 @@ ggrr <- ggplot() +
   coord_flip() +
   labs(title = "cnmodel prediction", subtitle = "Response to eCO2")
 
-ggsave(paste0(here::here(), "/fig/response_co2_cnmodel_NEW.pdf"))
+ggsave(paste0(here::here(), "/fig/response_co2_cnmodel_9debedeed3f06c22611e3697d4c508beb08a4c64.pdf"))
 
 
 ## Write output to file with commit ID --------------------
-readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
+# readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
+readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_9debedeed3f06c22611e3697d4c508beb08a4c64.csv"))

@@ -78,7 +78,7 @@ df <- df %>%
                                      ))) |> 
   
   ## to make it comparable, chose only data below 300 kg ha-1 yr-1
-  filter(ndep_kg_ha_yr <= 300) |> 
+  filter(ndep_kg_ha_yr <= 300) |>
   
   ## Use only variables that were also used for the MESI-CO2 meta-analysis
   filter(response %in% use_vars)
