@@ -34,7 +34,7 @@ Then, make a rough "ballpark comparison" of the outputs against data using `vign
 
 ## Additional analyses
 
-(Not currently used)
+Experiment data by Evan Perkowski on (Vcmax, Jmax) \~ N-fert: `vignettes/analysis_vcmaxjmax_nfert.Rmd`
 
 ### C:N by biome
 
