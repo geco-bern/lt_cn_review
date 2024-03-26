@@ -8,9 +8,13 @@ library(lubridate)
 # detach("package:rsofun", unload = TRUE)
 library(rsofun)
 
-## Parameters ------------------------
-pars <- list(
+# commit hash
+commitnr <- "66b424142b500e07c41895dbb35d64e5bbdad49e"
 
+## Parameters ------------------------
+# in v3 manuscript:
+pars <- list(
+  
   # P-model
   kphio                 = 0.04998,    # setup ORG in Stocker et al. 2020 GMD
   kphio_par_a           = 0.0,        # set to zero to disable temperature-dependence of kphio
@@ -121,7 +125,6 @@ pars <- list(
   nuptake_vmax          = 0.15
   
 )
-
 
 ## Forcing ------------------------
 ## Get N deposition data for locations of experiments
@@ -375,9 +378,10 @@ ggrr <- ggplot() +
   coord_flip() +
   labs(title = "cnmodel prediction", subtitle = "Response to N-fertilization")
 
-ggsave(paste0(here::here(), "/fig/response_nfert_cnmodel_NEW.pdf"))
+ggsave(paste0(here::here(), "/fig/response_nfert_cnmodel_", commitnr, ".pdf"))
 
 
 ## Write output to file --------------------
-readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
+# readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
+readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_nfert_", commitnr, ".csv"))
 

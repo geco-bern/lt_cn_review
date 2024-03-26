@@ -75,35 +75,36 @@ head(vcmax.nls.elv.pred)
 vcmax25.plot <- ggplot(data = subset(df, inoc == "no.inoc"), 
                        aes(x = n.trt, y = vcmax25)) +
   geom_point(aes(fill = co2), 
-             alpha = 0.75, size = 4, shape = 21) +
+             alpha = 0.75, size = 3, shape = 21) +
   geom_smooth(data = vcmax.nls.elv.pred, 
-              aes(y = emmean), color = "#b2182b",
-              linewidth = 2, se = FALSE) +
+              aes(y = emmean), color = "tomato",
+              linewidth = 1, se = FALSE) +
 # geom_ribbon(data = vcmax.nls.elv.pred, 
 #             aes(y = emmean, ymax = asymp.UCL, ymin = asymp.LCL),
-#             fill = "#b2182b", alpha = 0.25) +
+#             fill = "tomato", alpha = 0.25) +
   geom_smooth(data = vcmax.nls.amb.pred, 
-              aes(y = emmean), color = "#2166ac",
-              linewidth = 2, se = FALSE) +
+              aes(y = emmean), color = "grey30",
+              linewidth = 1, se = FALSE) +
 # geom_ribbon(data = vcmax.nls.amb.pred, 
 #             aes(y = emmean, ymax = asymp.UCL, ymin = asymp.LCL),
-#             fill = "#2166ac", alpha = 0.25) +  
-  geom_text(aes(500, 5, label = (paste(expression(" y = "*frac("114.85 * x", "454.90 + x")*" + 24.07")))),
-                parse = TRUE, size = 3.5, color = "#b2182b") +
-  geom_text(aes(500, 30, label = (paste(expression("y = "*frac("127.47 * x", "114.01 + x")*" +  3.29")))),
-            parse = TRUE, size = 3.5, color = "#2166ac") +
-  scale_fill_manual(values = c("#2166ac", "#b2182b"),
+#             fill = "grey30", alpha = 0.25) +  
+  # geom_text(aes(500, 5, label = (paste(expression(" y = "*frac("114.85 * x", "454.90 + x")*" + 24.07")))),
+  #               parse = TRUE, size = 2, color = "tomato") +
+  # geom_text(aes(500, 30, label = (paste(expression("y = "*frac("127.47 * x", "114.01 + x")*" +  3.29")))),
+  #           parse = TRUE, size = 2, color = "grey30") +
+  scale_fill_manual(values = c("grey30", "tomato"),
                      labels = c(expression("Ambient CO"["2"]),
                                 expression("Elevated CO"["2"]))) +
   scale_y_continuous(limits = c(0, 160), breaks = seq(0, 160, 40)) +
   labs(x = "Soil N fertilization (ppm)",
-       y = expression(bold(italic("V")["cmax25"]*" ("*mu*"mol m"^"-2"*" s"^"-1"*")")),
-       fill = expression(bold("CO"["2"]*" treatment"))) +
-  theme_bw(base_size = 18) +
-  theme(legend.title = element_text(face = "bold"),
-        axis.title = element_text(face = "bold"),
-        panel.border = element_rect(linewidth = 1.25),
-        legend.text.align = 0)
+       y = expression(italic("V")["cmax25"]*" ("*mu*"mol m"^"-2"*" s"^"-1"*")"),
+       fill = expression("CO"["2"]*" treatment")) +
+  theme_classic()
+  # theme_bw(base_size = 18) +
+  # theme(legend.title = element_text(face = "bold"),
+  #       axis.title = element_text(face = "bold"),
+  #       panel.border = element_rect(linewidth = 1.25),
+  #       legend.text.align = 0)
 vcmax25.plot
 ```
 
@@ -150,44 +151,62 @@ head(jmax.nls.amb.pred)
 jmax25.plot <- ggplot(data = subset(df, inoc == "no.inoc"),
                       aes(x = n.trt, y = jmax25)) +
   geom_point(aes(fill = co2), 
-             alpha = 0.75, size = 4, shape = 21) +
+             alpha = 0.75, size = 3, shape = 21) +
   geom_smooth(data = jmax.nls.elv.pred, 
-              aes(y = emmean), color = "#b2182b", 
-              linewidth = 2, se = FALSE) +
+              aes(y = emmean), color = "tomato", 
+              linewidth = 1, se = FALSE) +
 # geom_ribbon(data = jmax.nls.elv.pred, 
 #             aes(y = emmean, ymax = asymp.UCL, ymin = asymp.LCL),
-#             fill = "#b2182b", alpha = 0.25) +
+#             fill = "tomato", alpha = 0.25) +
   geom_smooth(data = jmax.nls.amb.pred, 
-              aes(y = emmean), color = "#2166ac", 
-              linewidth = 2, se = FALSE) +
+              aes(y = emmean), color = "grey30", 
+              linewidth = 1, se = FALSE) +
 # geom_ribbon(data = jmax.nls.amb.pred, 
 #             aes(y = emmean, ymax = asymp.UCL, ymin = asymp.LCL),
-#             fill = "#2166ac", alpha = 0.25) +
-  geom_text(aes(500, 7.5, label=(paste(expression(" y = "*frac("185.98 * x", "347.68 + x")*" + 46.28")))),
-            parse = TRUE, size = 3.5, color = "#b2182b") +
-  geom_text(aes(500, 45, label=(paste(expression("y = "*frac("207.27 * x", "96.47 + x")*"  +  9.81")))),
-            parse = TRUE, size = 3.5, color = "#2166ac") +
-  scale_fill_manual(values = c("#2166ac", "#b2182b"),
+#             fill = "grey30", alpha = 0.25) +
+  # geom_text(aes(500, 7.5, label=(paste(expression(" y = "*frac("185.98 * x", "347.68 + x")*" + 46.28")))),
+  #           parse = TRUE, size = 2.5, color = "tomato") +
+  # geom_text(aes(500, 45, label=(paste(expression("y = "*frac("207.27 * x", "96.47 + x")*"  +  9.81")))),
+  #           parse = TRUE, size = 2.5, color = "grey30") +
+  scale_fill_manual(values = c("grey30", "tomato"),
                     labels = c(expression("Ambient CO"["2"]),
                                expression("Elevated CO"["2"]))) +
   scale_y_continuous(limits = c(0, 240), breaks = seq(0, 240, 60)) +
   labs(x = "Soil N fertilization (ppm)",
-       y = expression(bold(italic("J")["max25"]*" ("*mu*"mol m"^"-2"*" s"^"-1"*")")),
-       fill = expression(bold("CO"["2"]*" treatment"))) +
-  theme_bw(base_size = 18) +
-  theme(legend.title = element_text(face = "bold"),
-        axis.title = element_text(face = "bold"),
-        panel.border = element_rect(linewidth = 1.25),
-        legend.text.align = 0)
+       y = expression(italic("J")["max25"]*" ("*mu*"mol m"^"-2"*" s"^"-1"*")"),
+       fill = expression("CO"["2"]*" treatment")) +
+  theme_classic()
+  # theme_bw(base_size = 18) +
+  # theme(legend.title = element_text(face = "bold"),
+  #       axis.title = element_text(face = "bold"),
+  #       panel.border = element_rect(linewidth = 1.25),
+  #       legend.text.align = 0)
+
 jmax25.plot
 ```
 
 ### Merge Vcmax25 and Jmax25 plots into single plot
 ```{r, warning = FALSE, message = FALSE, fig.dim=c(12,4.5), fig.cap="**Figure XX** Saturating effects of increasing fertilization on (a) the maximum rate of Rubisco carboxylation and (b) the maximum rate of electron transport for RuBP regeneration in uninoculated _Glycine max_ L. (Merr) seedlings grown under one of two CO2 concentrations (420 and 1000 ppm) across nine nitrogen fertilization levels. Blue points and nonlinear trendlines indicate individuals grown under ambient CO2, while red points and nonlinear trendlines indicate individuals grown under elevated CO2. Nonlinear regression equations are included in each panel, with colored text corresponding to each CO2 treatment. Trendlines were drawn using the 'emmeans' function in the 'emmeans' R package (Lenth 2019). Figure has been redrawn using data from analyses reported in Perkowski et al. (2023)."}
-ggarrange(vcmax25.plot, jmax25.plot, common.legend = TRUE, 
-          legend = "right", labels = c("a", "b"), 
-          font.label = list(size = 18),
-          label.x = 0.2, label.y = 0.975)
+
+gg <- cowplot::plot_grid(
+  vcmax25.plot +
+    theme(legend.position="none"),
+  jmax25.plot +
+    theme(legend.position="none"),
+  align = 'vh',
+  labels = c("a", "b"),
+  hjust = -1,
+  nrow = 1
+)
+
+legend <- cowplot::get_legend(
+  # create some space to the left of the legend
+  vcmax25.plot + theme(legend.box.margin = margin(0, 0, 0, 12))
+)
+cowplot::plot_grid(gg, legend, rel_widths = c(3, 0.6))
+
+ggsave(here::here("fig/vcmax_jmax_nfert.pdf"), width = 8, height = 3)
+ggsave(here::here("fig/vcmax_jmax_nfert.png"), width = 8, height = 3)
 ```
 
 ### References

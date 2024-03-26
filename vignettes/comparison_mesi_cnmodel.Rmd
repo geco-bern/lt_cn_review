@@ -36,7 +36,10 @@ df_box_co2 <- read_rds("../data/df_box_mesi_co2.rds")
 
 Add model outputs to this data frame. This is produced with `analysis/exp_co2_cnmodel.R`.
 ```{r}
-df_cnmodel_co2 <- read_csv(paste0(here::here(), "/data/output_cnmodel_co2_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
+# commitnr <- "50c01ecbac0ad20114dc9cc28d67006af45f128e" # V3 
+commitnr <- "66b424142b500e07c41895dbb35d64e5bbdad49e"
+
+df_cnmodel_co2 <- read_csv(paste0(here::here(), "/data/output_cnmodel_co2_", commitnr, ".csv"))
 
 ## aggregate before and after
 years_before <- 2007:2009
@@ -254,7 +257,10 @@ df_box_nfert_liang <- read_rds(paste0(here::here(), "/data/df_box_liang_nfert.rd
 
 Get log response ratios from model outputs. This is produced with `analysis/exp_nfert_cnmodel.R`.
 ```{r}
-df_cnmodel_nfert <- read_csv(paste0(here::here(), "/data/output_cnmodel_nfert_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
+# commitnr <- "50c01ecbac0ad20114dc9cc28d67006af45f128e" # V3 
+commitnr <- "66b424142b500e07c41895dbb35d64e5bbdad49e"
+
+df_cnmodel_nfert <- read_csv(paste0(here::here(), "/data/output_cnmodel_nfert_", commitnr, ".csv"))
 
 ## aggregate before and after
 years_before <- 2007:2009
@@ -466,8 +472,8 @@ cowplot::plot_grid(gg_mesi_cnmodel_nfert_liang,
                    labels = c("a", "b", "c"),
                    ncol = 1)
 
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis_cnmodel.pdf"), width = 8, height = 11)
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis_cnmodel.png"), width = 8, height = 11)
+ggsave(here::here("fig/combined_metaanalysis_cnmodel.pdf"), width = 8, height = 11)
+ggsave(here::here("fig/combined_metaanalysis_cnmodel.png"), width = 8, height = 11)
 
 # cowplot::plot_grid(gg_mesi_cnmodel_eco2, 
 #                    gg_mesi_cnmodel_nfert_mesi, 
