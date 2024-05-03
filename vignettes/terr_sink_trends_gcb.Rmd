@@ -264,8 +264,8 @@ gg2 <- df_models_trend_long |>
   )
 
 cowplot::plot_grid(gg1, gg2, nrow = 2, rel_heights = c(0.8, 1), labels = c("a", "b", "c"))
-ggsave(here::here("fig/sink_trend_trendy.pdf"), width = 1.7*6, height = 1.7*5)
-ggsave(here::here("fig/sink_trend_trendy.png"), width = 1.7*6, height = 1.7*5)
+ggsave(here::here("fig_pub/sink_trend_trendy.pdf"), width = 1.7*6, height = 1.7*5)
+ggsave(here::here("fig_pub/sink_trend_trendy.png"), width = 1.7*6, height = 1.7*5)
 
 gg1
 ggsave(here::here("fig/sink_trend_trendy_tseries.pdf"), width = 1.7*6, height = 4)

@@ -6,11 +6,13 @@ Author: Benjamin Stocker, Uni Bern
 
 This consists of different analyses, implemented in separate scripts and notebooks:
 
-## DGVM analysis of land C sink trends
+## Workflow
 
-Done in a separate GitHub repository: `stineb/dgvm_analyses`, using file `terr_sink_trends_gcb.Rmd`.
+### DGVM analysis of land C sink trends
 
-## Meta-analysis of ecosystem experiments
+Using TRENDY v8 model outputs for land C sink trend analysis. Done by file `vignettes/terr_sink_trends_gcb.Rmd`.
+
+### Meta-analysis of ecosystem experiments
 
 Using MESI data from eCO2 experiments (all variables): `vignettes/analysis_mesi_co2.Rmd` (previously `vignettes/analysis_mesi.Rmd`)
 
@@ -20,11 +22,11 @@ Using Liang et al., 2020 data from N-fertilisation experiments (complementary su
 
 Combine plots for publication figure: `vignettes/publication_figures_metaanalysis.Rmd`
 
-## Field data analysis
+### Field data analysis
 
 Using data from Dong et al., 2022: `vignettes/analysis_leafn_vcmax_field.Rmd`
 
-## CN-model simulations and evaluation
+### CN-model simulations and evaluation
 
 CN-model simulations are done using a the CN-model, available in a separate GitHub repository (`stineb/rsofun`, branch `cnmodel`). Get this and build the rsofun R package to run rsofun for analyses in this repository.
 
@@ -32,14 +34,32 @@ Run scripts `analysis/exp_co2_cnmodel.R` and `analysis/exp_nfert_cnmodel.R` (bot
 
 Then, make a rough "ballpark comparison" of the outputs against data using `vignettes/cnmodel_benchmark_ballpark.Rmd`, and finally the model evaluation against MESI data using `vignettes/comparison_mesi_cnmodel.Rmd`.
 
-## Additional analyses
+### Additional analyses
 
 Experiment data by Evan Perkowski on (Vcmax, Jmax) \~ N-fert: `vignettes/analysis_vcmaxjmax_nfert.Rmd`
 
-### C:N by biome
+#### C:N by biome
 
-Code from Huiying Xu (edited) available by `analysis/pre_CN_global.R` (loading file `data/pre_CN_global.RData` obtained by Huiying by email). See also [this Notion page](https://www.notion.so/computationales/Document-C-N-prediction-1796d17805784b109957bc82a03a1c62?pvs=4) (internal-only).
+[Not used for publication] Code from Huiying Xu (edited) available by `analysis/pre_CN_global.R` (loading file `data/pre_CN_global.RData` obtained by Huiying by email). See also [this Notion page](https://www.notion.so/computationales/Document-C-N-prediction-1796d17805784b109957bc82a03a1c62?pvs=4) (internal-only).
 
-### Soil decomposition rate
+#### Soil decomposition rate
 
-Meta-analysis using data from Van Groenigen et al., 2014, see `vignettes/analysis_vangroenigen.Rmd`.
+[Not used for publication] Meta-analysis using data from Van Groenigen et al., 2014, see `vignettes/analysis_vangroenigen.Rmd`.
+
+## Publication figures
+
+All publication figures are in `fig_pub/`.
+
+-   Fig. 1: `sink_trend_trendy.pdf`, Created by `terr_sink_trends_gcb.Rmd`
+
+-   Fig. 2: `diagram_cnreview.pdf`, Created "by hand"
+
+-   Fig. 3: `combined_metaanalysis.pdf`, created by `publication_figures_metaanalysis.Rmd`
+
+-   Fig. 4: `combined_metaanalysis_couplings.pdf`, created by `publication_figures_metaanalysis.Rmd`
+
+-   Fig. 5: `coef_bars.pdf`, created by `analysis_leafn_vcmax_field.Rmd`
+
+-   Fig. 6: `combined_metaanalysis_cnmodel.pdf`, created by `comparison_mesi_cnmodel.Rmd`
+
+-   Fig. 7:

@@ -33,8 +33,8 @@ cowplot::plot_grid(gg_nfert_liang,
                    labels = c("a", "b", "c"),
                    ncol = 1)
 
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis.pdf"), width = 8, height = 11)
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis.png"), width = 8, height = 11)
+ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis.pdf"), width = 8, height = 11)
+ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis.png"), width = 8, height = 11)
 
 
 # couplings of AGB and BGB
@@ -43,6 +43,6 @@ cowplot::plot_grid(gg_eco2_cpl_agb_bgb_mesi,
                    ncol = 2,
                    labels = c("a", "b"))
 
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis_couplings.pdf"), width = 10, height = 5)
-ggsave(paste0(here::here(), "/fig/combined_metaanalysis_couplings.png"), width = 10, height = 5)
+ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis_couplings.pdf"), width = 10, height = 5)
+ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis_couplings.png"), width = 10, height = 5)
 ```
