@@ -93,7 +93,7 @@ pars <- list(
   cton_soil             = 9.77,
   fastfrac              = 0.985,
   
-  # N uptake
+  # N uptake - only used for module nuptake_ntransform.mod.f90
   eff_nup               = 0.0001000,
   minimumcostfix        = 1.000000,
   fixoptimum            = 25.15000,

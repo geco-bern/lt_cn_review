@@ -16,6 +16,7 @@ library(skimr)
 library(visreg)
 library(ingestr)
 library(readr)
+library(car)
 ```
 
 ## Ning Dong's data
@@ -70,7 +71,7 @@ gg4 <- df %>%
 Log-transform all variables to make them closer to normally distributed.
 
 ```{r, warning=FALSE}
-df <- df %>% 
+df <- df |> 
   mutate(log_vcmax25_obs = log(vcmax25_obs),
          log_Narea = log(Narea),
          log_Nmass = log(Nmass),
@@ -382,29 +383,52 @@ df <- df |>
 
 Fit multivariate models.
 ```{r}
-# removed: mgdd0 (don't know what it is)
-linmod_vcmax <- lm(log_vcmax25_obs ~ log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
-                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
-                   data = df)
-linmod_narea <- lm(log_Narea ~       log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
-                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
-                   data = df)
-linmod_nmass <- lm(log_Nmass ~       log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
-                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
-                   data = df)
-linmod_lma   <- lm(log_LMA ~         log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
-                                     #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
-                   data = df)
+# # removed: mgdd0 (don't know what it is)
+# linmod_vcmax <- lm(log_vcmax25_obs ~ log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+#                                      #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+#                    data = df)
+# 
+# linmod_narea <- lm(log_Narea ~       log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+#                                      #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+#                    data = df)
+# linmod_nmass <- lm(log_Nmass ~       log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+#                                      #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+#                    data = df)
+# linmod_lma   <- lm(log_LMA ~         log_vpd  + ppfd  + tgrowth + CNrt + log_ndep, 
+#                                      #log_vpd  + ppfd + alpha + tgrowth + PHAQ + CNrt + elv + log_ndep, 
+#                    data = df)
+
+# scale predictors to make coefficients comparable
+linmod_vcmax <- lm(
+  log_vcmax25_obs ~ scale(log_vpd) + scale(ppfd) + scale(tgrowth) + scale(CNrt) + scale(log_ndep),
+  data = df
+  )
+
+linmod_narea <- lm(
+  log_Narea ~ scale(log_vpd) + scale(ppfd) + scale(tgrowth) + scale(CNrt) + scale(log_ndep),
+  data = df
+  )
+
+linmod_nmass <- lm(
+  log_Nmass ~ scale(log_vpd) + scale(ppfd) + scale(tgrowth) + scale(CNrt) + scale(log_ndep),
+  data = df
+  )
+
+linmod_lma <- lm(
+  log_LMA ~ scale(log_vpd) + scale(ppfd) + scale(tgrowth) + scale(CNrt) + scale(log_ndep),
+  data = df
+  )
+
 ```
 
 Check collinearity with variance inflation factor. (the same for all models). They are all below 5 - that's good (James et al., 2014).
 
 *James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani. 2014. An Introduction to Statistical Learning: With Applications in R. Springer Publishing Company, Incorporated.*
 ```{r eval=FALSE}
-vif(linmod_vcmax)
-vif(linmod_narea)
-vif(linmod_nmass)
-vif(linmod_lma)
+car::vif(linmod_vcmax)
+car::vif(linmod_narea)
+car::vif(linmod_nmass)
+car::vif(linmod_lma)
 ```
 
 
@@ -483,7 +507,8 @@ t-values
 df_tvals <- tibble(
   pred = names(summary(linmod_vcmax)$coefficients[,"t value"]),
   tval = summary(linmod_vcmax)$coefficients[,"t value"],
-  pval = summary(linmod_vcmax)$coefficients[,"Pr(>|t|)"]
+  pval = summary(linmod_vcmax)$coefficients[,"Pr(>|t|)"],
+  coef = coef(linmod_vcmax)
   ) |> 
   mutate(
     var = "vcmax"
@@ -492,7 +517,8 @@ df_tvals <- tibble(
     tibble(
       pred = names(summary(linmod_narea)$coefficients[,"t value"]),
       tval = summary(linmod_narea)$coefficients[,"t value"],
-      pval = summary(linmod_narea)$coefficients[,"Pr(>|t|)"]
+      pval = summary(linmod_narea)$coefficients[,"Pr(>|t|)"],
+      coef = coef(linmod_narea)
       ) |> 
       mutate(
         var = "narea"
@@ -502,7 +528,8 @@ df_tvals <- tibble(
     tibble(
       pred = names(summary(linmod_nmass)$coefficients[,"t value"]),
       tval = summary(linmod_nmass)$coefficients[,"t value"],
-      pval = summary(linmod_nmass)$coefficients[,"Pr(>|t|)"]
+      pval = summary(linmod_nmass)$coefficients[,"Pr(>|t|)"],
+      coef = coef(linmod_nmass)
       ) |> 
       mutate(
         var = "nmass"
@@ -512,7 +539,8 @@ df_tvals <- tibble(
     tibble(
       pred = names(summary(linmod_lma)$coefficients[,"t value"]),
       tval = summary(linmod_lma)$coefficients[,"t value"],
-      pval = summary(linmod_lma)$coefficients[,"Pr(>|t|)"]
+      pval = summary(linmod_lma)$coefficients[,"Pr(>|t|)"],
+      coef = coef(linmod_lma)
       ) |> 
       mutate(
         var = "lma"
@@ -521,6 +549,7 @@ df_tvals <- tibble(
   mutate(is_significant = pval < 0.05)
 ```
 
+Plot t-values.
 ```{r}
 var_names <- list(
   "vcmax" = expression(paste(italic(V)[cmax25])),
@@ -558,6 +587,46 @@ df_tvals |>
 
 ggsave(paste0(here::here(), "/fig/tvals_bars.pdf"), width = 8, height = 5)
 ggsave(paste0(here::here(), "/fig/tvals_bars.png"), width = 8, height = 5)
+```
+
+Plot coefficients of normalised predictors.
+```{r}
+var_names <- list(
+  "vcmax" = expression(paste(italic(V)[cmax25])),
+  "narea" = expression(paste(italic(N)[area])),
+  "nmass" = expression(paste(italic(N)[mass])),
+  "lma" = "LMA"
+)
+
+var_labeller <- function(variable, value){
+  return(var_names[value])
+}
+
+df_tvals |> 
+  filter(pred != "(Intercept)") |> 
+  ggplot(aes(pred, coef)) +
+  geom_hline(yintercept = 0, color = "grey70") +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  labs(x = "") +
+  scale_x_discrete(labels = c("soil C:N", 
+                              expression(paste("log ", italic(N)[dep])), 
+                              "log VPD", 
+                              "PPFD", 
+                              expression(paste(italic(T)[g])))) +
+  scale_fill_manual(values = c("grey80", "grey30")) + 
+  coord_flip() +
+  facet_wrap(~factor(var, levels = c("vcmax", "narea", "nmass", "lma")),
+             labeller = var_labeller) + 
+  labs(y = "Normalised slope") +
+  theme(
+    strip.background = element_rect(fill = "grey80", color = NA),
+    strip.text = element_text(color = "black", size = 10),
+    legend.position = "none"
+  )
+
+ggsave(paste0(here::here(), "/fig/coef_bars.pdf"), width = 8, height = 5)
+ggsave(paste0(here::here(), "/fig/coef_bars.png"), width = 8, height = 5)
 ```
 
 ```{r}
