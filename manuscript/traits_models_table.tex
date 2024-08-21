@@ -1,0 +1,35 @@
+\begin{table}
+\caption{Summaries for linear regression models of leaf traits and environmental predictors. Coefficients of the five scaled predictors are shown along rows for the different target variables along columns. Values of the coefficients correspond to the values shown in Fig. 5 of the main text. The standard error of coefficient estimates is given in brackets. Asterisks indicate significance of each predictor at different levels (see table note). The number of observations (\textit{N}) and goodness-of-fit metrics are given in the bottom three rows of the table. N dep. is nitrogen deposition.}
+\label{tab:modelfits}
+\centering
+\begin{talltblr}[         %% tabularray outer open
+entry = none, label = none,
+note{}={+ p $<$ 0.1, * p $<$ 0.05, ** p $<$ 0.01, *** p $<$ 0.001},
+]                     %% tabularray outer close
+{                     %% tabularray inner open
+colspec={Q[]Q[]Q[]Q[]Q[]},
+column{1}={halign=l,},
+column{2}={halign=c,},
+column{3}={halign=c,},
+column{4}={halign=c,},
+column{5}={halign=c,},
+hline{12}={1,2,3,4,5}{solid, 0.05em, black},
+}                     %% tabularray inner close
+\toprule
+& $V_\text{cmax}$ & $N_\text{area}$ & $N_\text{mass}$ & LMA \\ \midrule %% TinyTableHeader
+VPD      & \num{0.201}***  & \num{0.226}***  & \num{-0.094}*** & \num{0.320}***  \\
+& (\num{0.017})   & (\num{0.014})   & (\num{0.012})   & (\num{0.017})   \\
+PPFD     & \num{0.062}***  & \num{-0.020}+   & \num{0.038}***  & \num{-0.057}*** \\
+& (\num{0.013})   & (\num{0.011})   & (\num{0.009})   & (\num{0.012})   \\
+$T_\text{growth}$    & \num{-0.270}*** & \num{-0.159}*** & \num{0.096}***  & \num{-0.255}*** \\
+& (\num{0.016})   & (\num{0.014})   & (\num{0.012})   & (\num{0.016})   \\
+Soil C:N & \num{-0.044}*** & \num{-0.066}*** & \num{-0.075}*** & \num{0.009}     \\
+& (\num{0.010})   & (\num{0.008})   & (\num{0.007})   & (\num{0.010})   \\
+N dep.   & \num{-0.006}    & \num{-0.131}*** & \num{0.127}***  & \num{-0.257}*** \\
+& (\num{0.012})   & (\num{0.010})   & (\num{0.009})   & (\num{0.012})   \\
+$N$ & \num{3137}      & \num{3134}      & \num{3134}      & \num{3134}      \\
+$R^2$       & \num{0.111}     & \num{0.154}     & \num{0.097}     & \num{0.209}     \\
+Adj. $R^2$  & \num{0.109}     & \num{0.152}     & \num{0.095}     & \num{0.208}     \\
+\bottomrule
+\end{talltblr}
+\end{table}

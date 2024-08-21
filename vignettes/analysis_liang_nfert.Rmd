@@ -249,6 +249,22 @@ df4b <- df3 %>%
 
 Aggregate log-ratios across multiple experiments, taking into account their respective variance and using the experiment identity as a grouping factor for random intercepts.
 ```{r}
+# modify experiment name
+get_last <- function(string){
+  pos <- str_locate_all(string, "[0-9]") |> 
+    map(~max(c(.))) |> 
+    unlist()
+  return(pos)
+}
+
+df4 <- df4 |> 
+  mutate(
+    loc_last = get_last(exp)
+  ) |> 
+  mutate(
+    exp = str_sub(exp, start = 1, end = loc_last)
+  )
+
 out  <- purrr::map(
   as.list(use_vars), 
   ~analyse_meta(df4 %>% 
@@ -366,21 +382,27 @@ ggsave(paste0(here::here(), "/fig/metaanalysis_nfert_liang.png"), width = 6, hei
 
 Below: experiment-level meta analysis plots. Note that variable names written to (console) output are pasted in abvoe the respective "forest plot". 
 
+
+#### Forest plots
+
 ```{r}
-# Vcmax
-metafor::forest(out$Vcmax$modl)
-
-# Narea
-metafor::forest(out$Narea$modl)
-
-# Nmass
-metafor::forest(out$Nmass$modl)
-
-# # LMA
-# metafor::forest(out$LMA$modl)
-# 
-# # SLA
-# metafor::forest(out$SLA$modl)
+for (ivar in unique(use_vars)){
+  print(ivar)
+  tmp <- out[[ivar]]$modl
+  pdf(
+    file = here(paste0("fig/forestplot_liangetal_nfert_", ivar, ".pdf")),
+    width = 8,
+    height = 0.2*nrow(tmp$data) + 4
+  )
+  try(
+    metafor::forest(
+      tmp,
+      header = c(ivar, "")
+      )
+    )
+  dev.off()
+}
+# purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
 ```
 
 ### By fertilisation level

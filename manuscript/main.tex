@@ -1,0 +1,303 @@
+\documentclass{myreport}
+
+% References
+\bibliographystyle{copernicus.bst}
+
+\begin{document}
+\pagestyle{headings}
+
+% Change figure (table, section) numbering (e.g., from 'Figure 1' to 'Figure S1')
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thesection}{S\arabic{section}}
+\renewcommand{\theequation}{S\arabic{equation}}
+
+% Document must include
+% ---------------------
+% 
+
+%% Title
+\title{SUPPLEMENTARY INFORMATION:\\
+Empirical evidence and theoretical understanding of ecosystem carbon and nitrogen cycle interactions}
+\author{Benjamin D. Stocker, Ning Dong, Evan A. Perkowski, Pascal D. Schneider,
+Huiying Xu, Hugo de Boer, Karin T. Rebel, Nicholas G. Smith, Kevin Van Sundert, Han Wang, Sarah E. Jones, I. Colin Prentice and Sandy P. Harrison} 
+
+\maketitle
+
+\tableofcontents
+
+
+\section{Analysis of modelled land C sink trends}
+
+We evaluated the time series of the simulated and observations-based land C balance, its decadal mean for years 2011-2020 and long-term trend for years 1959-2020 from outputs of the Trends and Drivers of Terrestrial Sources and Sinks of Carbon Dioxide (TRENDY) version 8 model intercomparison \citep{sitch_trends_2024}. We downloaded the original file \texttt{Global\_Carbon\_Budget\_2021v1.0.xlsx} (\url{doi:10.18160/gcp-2021}) from the Global Carbon Budget 2021 website and exported the tabs `Terrestrial Sink' and `Global Carbon Budget' for further analysis. From the latter, we derived the land C sink as the budget residual as quantified by \citep{friedlingstein22essd}:
+\begin{equation}
+S_\text{Land} = (E_\text{FF} + E_\text{LUC}) - (G_\text{atm} + S_\text{ocean} + S_\text{cement}) \;,
+\end{equation}
+where $S_\text{Land}$ is the land sink (`Observations' in Fig. 1 of the main text), $E_\text{FF}$ are emission from fossil fuel combustion, $E_\text{LUC}$ are emissions from land use change, $G_\text{atm}$ is the atmospheric growth rate, $S_\text{ocean}$ is the ocean sink, and $S_\text{cement}$ is the C sink from cement carbonation. The land sink simulated by models was taken as the annual C flux numbers provided in the tab `Terrestrial Sink' of the original file. It was taken by \citep{friedlingstein22essd} as the global biome producitivity (net terrestrial C balance) from simulations (TRENDY S2) forced by observed CO$_2$ and climate and with constant pre-industrial land use. The identification of models into C-only and C-N coupled models was done based on information provided in Table A.1 in \citep{friedlingstein22essd}. 
+
+
+\section{Meta-analysis of ecosystem experiments}
+
+\subsection{Statistical analysis}
+\label{sec:statisticalanalysis}
+
+The natural logarithm of the response ratio of the means and its variance were calculated for each response variable, experiment, treatment, and sampling year, using information about the the number of repeated measurements (multiple experimental plots, multiple sampling dates per year). This was done using the function \texttt{escalc(measure="ROM", ...)} from the \{metafor\} R package \citep{viechtbauer_conducting_2010}. The standard error was calculated as $\text{SE} = \sqrt{\text{var}/N}$, where $N$ is the number of repeated measurements.
+
+For CO$_2$ experiments, the response ratio was normalised with (divided by) the natural logarithm of the ratio of elevated over ambient CO$_2$ concentrations.
+
+Data was then aggregated by experiment using the procedure based on \citet{borenstein_effect_2009}, implemented by the function \texttt{agg(method = "BHHR", ...)} from the \{MAd\} R package \citep{mad_r_package}, and assuming a correlation of within-study response ratios of 0.5.
+
+Finally, the meta-analysis of responses across experiments was performed as a mixed-effects meta-regression model using experiment as the grouping variable for random factors, and fitted via the restricted maximum likelihood esimation. This is implemented using the function \texttt{rma.mv(method = "REML", ...)} from the \{metafor\} R package \citep{viechtbauer_conducting_2010}. The confidence intervals (edges of boxes in Fig. 3) of the meta-analytic mean response ratio (bold line inside boxes in Fig. 3) span 95\%. 
+
+
+\subsection{Response to CO$2$, MESI data}
+
+\subsubsection{Data selection}
+
+Data were used from the Manipulation Experiments Synthesis Initiative (MESI) database \citep{vansundert_when_2023}, obtained from GitHub (\url{https://github.com/MESI-organization/mesi-db}). For CO$_2$ experiments, we considered only data from Free Air CO$_2$ Enrichment (FACE) experiments and from open-top chamber experiments, from experiments that provided data from at least three years. For data generated in multi-factorial experiments, we used only data from the CO$_2$-only treatment (no interactions with other experimentally manipulated factors considered). Variables shown in this manuscript (Fig. 3, 4, and 6 in this study) were identified by the response variable name in the database according to Tab. \ref{tab:varnams_mesi}.
+
+\begin{table}
+ \caption{Variables in the MESI database used for the analysis.}
+\begin{tabular}{p{0.2\linewidth} p{0.2\linewidth} p{0.6\linewidth}}
+  \toprule
+  Variable name & Variable code & Variable names in MESI  \\
+  \midrule
+  AGB & agb & \texttt{agb\_coarse}, \texttt{agb} \\
+  BGB & bgb & \texttt{bgb}, \texttt{fine\_root\_biomass}, \texttt{coarse\_root\_c\_stock}, \texttt{bgb\_coarse} \\
+  LAI & lai & \texttt{lai}, \texttt{lai\_max} \\
+  Root NPP & root\_production & \texttt{root\_production}, \texttt{fine\_root\_production}, \texttt{coarse\_root\_production} \\
+  N uptake & n\_uptake & \texttt{root\_n\_uptake}, \texttt{root\_nh4\_uptake}, \texttt{root\_no3\_uptake} \\
+  Inorganic N & n\_inorg & \texttt{soil\_no3-n}, \texttt{soil\_nh4-n}, \texttt{soil\_nh4}, \texttt{soil\_no3}, \texttt{soil\_solution\_nh4}, \texttt{soil\_solution\_no3} \\
+  $A_\text{sat}$ & asat & \texttt{asat} \\
+  $V_\text{cmax}$ & vcmax & \texttt{vcmax} \\
+  $J_\text{max}$ & jmax & \texttt{jmax} \\
+  GPP & gpp & \texttt{gpp} \\
+  $N_\text{area}$ & leaf\_n\_area & \texttt{leaf\_n\_area} \\
+  $N_\text{mass}$ & leaf\_n\_mass & \texttt{leaf\_n\_mass} \\
+  Leaf C:N & leaf\_cn & \texttt{leaf\_cn} \\
+  ANPP & anpp & \texttt{anpp} \\
+  Root:shoot & root\_shoot\_ratio & \texttt{root\_shoot\_ratio} \\
+  \bottomrule
+\end{tabular}
+\label{tab:varnams_mesi}
+\end{table}
+
+\subsubsection{Extended results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_asat.pdf}
+\caption{Response of leaf-level assimilation under light-saturated conditions ($A_\text{sat}$) to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+% \input{df_experiments_co2_asat.tex}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_gpp.pdf}
+\caption{Response of GPP to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_vcmax.pdf}
+\caption{Response of $V_\text{cmax}$ to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_leaf_n_area.pdf}
+\caption{Response of leaf $N_\text{area}$ to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_leaf_n_mass.pdf}
+\caption{Response of leaf $N_\text{mass}$ to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_leaf_cn.pdf}
+\caption{Response of leaf C:N to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_lai.pdf}
+\caption{Response of LAI to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_anpp.pdf}
+\caption{Response of aboveground net primary productivity (ANPP) to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.6\textwidth]{../fig/forestplot_mesi_co2_agb.pdf}
+\caption{Response of aboveground biomass (AGB) to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_root_production.pdf}
+\caption{Response of root biomass productivity to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\clearpage
+
+\subsection{Response to N-fertilisation, MESI and NutNet data}
+
+\subsubsection{Data selection}
+
+Data were used from the Manipulation Experiments Synthesis Initiative (MESI) database \citep{vansundert_when_2023}, obtained from GitHub (\url{https://github.com/MESI-organization/mesi-db}). For variables belowground biomass (bgb, \texttt{Rootsgperm2} in NutNet), root mass fraction (rmf, \texttt{rootmassfraction} in NutNet), aboveground biomass (agb), and the root:shoot ratio (root\_shoot\_ratio), we combined MESI data with data from the meta-analysis of the NutNet experiments network by \citet{cleland_belowground_2019}. Aboveground biomass from NutNet data was calculated as (bgb/rmf) $-$ bgb. The root:shoot ratio from NutNet data was calculated as bgb/agb. 
+
+For MESI data, only data from field experiments were used for which the N application rate was less or equal to 300 kg N ha$^{-1}$ yr$^{-1}$. For data generated in multi-factorial experiments, we used only data from the N-fertilisation-only treatment (no interactions with other experimentally manipulated factors considered). Variables shown in this manuscript (Fig. 3, 4, and 6 in this study) were identified by the response variable name in the database according to Tab. \ref{tab:varnams_mesi}.
+
+\subsubsection{Extended results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.4\textwidth]{../fig/forestplot_mesi_nutnet_nfert_agb.pdf}
+\caption{Response of aboveground biomass (agb) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{../fig/forestplot_mesi_nutnet_nfert_bgb.pdf}
+\caption{Response of belowground biomass (bgb) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../fig/forestplot_mesi_nutnet_nfert_anpp.pdf}
+\caption{Response of aboveground net primariy production (anpp) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_nutnet_nfert_n_inorg.pdf}
+\caption{Response of soil inorganic nitrogen (n\_inorg) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_nutnet_nfert_root_production.pdf}
+\caption{Response of root biomass production (root\_production) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../fig/forestplot_mesi_nutnet_nfert_root_shoot_ratio.pdf}
+\caption{Response of the root:shoot ratio (root\_shoot\_ratio) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_nutnet_nfert_n_uptake.pdf}
+\caption{Response of the N uptake ratio (n\_uptake) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\clearpage
+
+\subsection{Response to N-fertilisation, Liang et al. data}
+
+\subsubsection{Data selection}
+
+Data were used from the meta-analysis by \citet{liang_global_2020} for which the N application rate was less or equal to 300 kg N ha$^{-1}$ yr$^{-1}$.
+
+\subsubsection{Extended results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.6\textwidth]{../fig/forestplot_liangetal_nfert_Aarea.pdf}
+\caption{Response of leaf-level assimilation rate (Aarea), here interpreted as representative for light-saturated conditions, to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_Vcmax.pdf}
+\caption{Response of $V_\text{cmax}$ to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_Narea.pdf}
+\caption{Response of $N_\text{area}$ (Narea) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.4\textwidth]{../fig/forestplot_liangetal_nfert_Nmass.pdf}
+\caption{Response of $N_\text{mass}$ (Nmass) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_LAI.pdf}
+\caption{Response of the leaf area index (LAI) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_Leaf_biomass.pdf}
+\caption{Response of leaf biomass to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\clearpage
+
+% % Experiments reference table
+% \input{df_experiments_co2_01.tex}
+% \clearpage
+% \input{df_experiments_co2_02.tex}
+
+
+\section{Analysis of global leaf traits data}
+
+The analysis was based on data from \citet{dong22jecol}, obtained through Zenodo \citep{dong22zenodo}. The data contains 3143 observations from 2078 different plant species, collected at 302 different sites where plants were growing under natural conditions (not experimentally disturbed). The target variables of the analysis are leaf N content per unit leaf area ($N_\text{area}$, leaf N content per unit leaf mass ($N_\text{mass}$, leaf dry mass perunit leaf area (LMA), and the Rubisco carboxylation capacity at the standard temperature of 25$^\circ$C - a measure of the capacity of photosynthesis under non-light limiting conditions and linked with the leaf metabolic N content through the N-richness of Rubisco. All target variables were log-transformed to improve normality of the model residuals. 
+
+Soil C:N ratio was extracted from ISRIC WISE30sec \citep{batjes_harmonized_2016}. Growth temperature ($T_\text{growth}$) was derived from the monthly climatology of WorldClim extracted from global 1 km resolution maps \citep{fick_worldclim_2017} and calculated as the daytime mean temperature (conversion of mean daily to daytime mean temperature following \citet{jones_plants_2013}, see Eq. 9 in \citet{dong22jecol}) of months for which the daytime temperature was $>0^\circ$C. The photosynthetic photon flux density (PPFD) was calculated as a linear function of shorwave incoming radiation. Vapour pressure deficit (VPD) was calculated from monthly climatologies of vapour pressure, daily minimum and maximum temperature from WorldClim as
+\begin{equation}
+\text{VPD} = \left(\text{VPD}(e_a, T_\text{min}) + \text{VPD}(e_a, T_\text{max})\right)/2\;,
+\end{equation}
+with 
+\begin{equation}
+\text{VPD}(e_a, T) = e_s - e_a \;,
+\end{equation}
+where $e_a$ is the actual vapour pressure, obtained from WorldClim. and $e_s$ is the saturation vapour pressure, calculated as
+\begin{equation}
+e_s = 611.0 \; \exp \left( \frac{17.27 \; T}{T + 237.3} \right) \;.
+\end{equation}
+Also VPD and PPFD were averaged over months with mean growth temperatures above freezing from the monthly WorldClim climatology to obtain a growing-season mean.
+
+Nitrogen deposition was taken from \citet{lamarque_global_2011} as the sum of atmospheric deposition of NH$_x$ and NO$_y$ and averaged over years 1990 to 2009. N deposition and VPD were log-transformed for further analysis since their distributions were highly asymmetric.
+
+Ordinary least-squares linear regression models were fitted separately for each target variable with the same centered and scaled predictors. Centering and scaling enables the quantitative comparison of fitted coefficients as a measure of variable importance and partial effect magnitude. Variance inflation factors were below five for all variables. Values for the `normalised slope' shown in Fig. 5 of the main text are taken as the coefficients of the five predictors determined from the fitted linear regression models of each target variable.
+
+A summary of the models, including coefficients and goodness-of-fit metrics, is given in Table \ref{tab:modelfits}.
+
+\input{traits_models_table.tex}
+
+\section{CN-model simulations}
+
+The CN-model is used here for two point-scale simulations - one with a step-increase to elevated CO$_2$ and one with a step-increase in reactive N input. For both simulations, the daily meteorological forcing time series are derived from FLUXNET2015 data for the site FR-Pue \citep{rambal_growth_2004} - the site of an evergreen forest in southern France. For the demonstration purpose of the simulations here, we forced the model with constant meteorological conditions in each day and simulation year. Constant meteorological conditions were taken as growing-season mean, i.e., the average over all days where air temperature was above 5$^\circ$C. Effects of limiting root-zone water availability are not considered for the CN-model simulations. 
+
+The ambient daily N deposition is set to 0.003 gN m$^{-2}$ d$^{-1}$. These values are chosed such that the annual sum of NO$_3$ and NH$_4$ correspond to values for this site location estimated by global atmospheric chemitry and transport modelling \citep{lamarque_global_2011}.
+
+No biomass harvesting, nor external seed input was considered.
+
+For the CO$_2$ experiment, the atmospheric concentration was doubled, from 389 ppm to 778 ppm, within one year. The simulated and observed responses to elevated CO$_2$ were normalised with the change in CO$_2$ (see \ref{sec:statisticalanalysis}) for the evaluation against observations from the experiments meta-analysis. For the N-fertilisation experiment, the reactive N input was increased from the ambient level to 12 gN m$^{-2}$ d$^{-1}$. This corresponds to the average rate of fertilisation experiments in \citep{liang_global_2020}. Simulated response ratios were evaluated as means across ten years (year 5 to 15) after the step-increase, and referenced against three years before the step-increase. The first four years after the step-increase were omitted because of oscillating behaviour of the modelled system, which got attenuated thereafter.
+
+Model simulations were performed with the model as implemented in the {rsofun} modelling framework available from \url{https://github.com/stineb/rsofun/tree/cnmodel} branch \texttt{cnmodel}, commit hash number \texttt{66b424142b500e07c41895dbb35d64e5bbdad49e}). Model parameters are specified in the scripts available on Github (\url{https://github.com/stineb/lt_cn_review/blob/main/analysis/exp_co2_cnmodel.R} and \url{https://github.com/stineb/lt_cn_review/blob/main/analysis/exp_nfert_cnmodel.R}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliography{references_cnreview.bib}
+
+
+\end{document}
+

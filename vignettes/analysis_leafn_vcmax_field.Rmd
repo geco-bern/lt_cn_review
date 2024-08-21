@@ -17,6 +17,7 @@ library(visreg)
 library(ingestr)
 library(readr)
 library(car)
+library(modelsummary)
 ```
 
 ## Ning Dong's data
@@ -421,6 +422,30 @@ linmod_lma <- lm(
 
 ```
 
+Print model summaries.
+```{r}
+modelsummary(
+  list(
+    "Vcmax" = linmod_vcmax,
+    "Narea" = linmod_narea,
+    "Nmass" = linmod_nmass,
+    "LMA" = linmod_lma
+  ),
+  stars = TRUE,
+  gof_omit = "IC|F|RMSE|Log",
+  coef_omit = "Intercept", 
+  coef_rename = c(
+    "scale(log_vpd)" = "VPD",
+    "scale(ppfd)" = "PPFD",
+    "scale(tgrowth)" = "Temp.",
+    "scale(CNrt)" = "Soil C:N",
+    "scale(log_ndep)" = "N dep."
+  ),
+  output = here::here("manuscript/traits_models_table_tmp.tex")
+)
+```
+
+
 Check collinearity with variance inflation factor. (the same for all models). They are all below 5 - that's good (James et al., 2014).
 
 *James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani. 2014. An Introduction to Statistical Learning: With Applications in R. Springer Publishing Company, Incorporated.*
@@ -430,7 +455,6 @@ car::vif(linmod_narea)
 car::vif(linmod_nmass)
 car::vif(linmod_lma)
 ```
-
 
 Partial relationship analysis with soil C:N.
 ```{r}
@@ -508,7 +532,8 @@ df_tvals <- tibble(
   pred = names(summary(linmod_vcmax)$coefficients[,"t value"]),
   tval = summary(linmod_vcmax)$coefficients[,"t value"],
   pval = summary(linmod_vcmax)$coefficients[,"Pr(>|t|)"],
-  coef = coef(linmod_vcmax)
+  coef = coef(linmod_vcmax),
+  err =  summary(linmod_vcmax)$coefficients[,"Std. Error"]
   ) |> 
   mutate(
     var = "vcmax"
@@ -518,7 +543,8 @@ df_tvals <- tibble(
       pred = names(summary(linmod_narea)$coefficients[,"t value"]),
       tval = summary(linmod_narea)$coefficients[,"t value"],
       pval = summary(linmod_narea)$coefficients[,"Pr(>|t|)"],
-      coef = coef(linmod_narea)
+      coef = coef(linmod_narea),
+      err =  summary(linmod_narea)$coefficients[,"Std. Error"]
       ) |> 
       mutate(
         var = "narea"
@@ -529,7 +555,8 @@ df_tvals <- tibble(
       pred = names(summary(linmod_nmass)$coefficients[,"t value"]),
       tval = summary(linmod_nmass)$coefficients[,"t value"],
       pval = summary(linmod_nmass)$coefficients[,"Pr(>|t|)"],
-      coef = coef(linmod_nmass)
+      coef = coef(linmod_nmass),
+      err =  summary(linmod_nmass)$coefficients[,"Std. Error"]
       ) |> 
       mutate(
         var = "nmass"
@@ -540,53 +567,14 @@ df_tvals <- tibble(
       pred = names(summary(linmod_lma)$coefficients[,"t value"]),
       tval = summary(linmod_lma)$coefficients[,"t value"],
       pval = summary(linmod_lma)$coefficients[,"Pr(>|t|)"],
-      coef = coef(linmod_lma)
+      coef = coef(linmod_lma),
+      err =  summary(linmod_lma)$coefficients[,"Std. Error"]
       ) |> 
       mutate(
         var = "lma"
       )
   ) |> 
   mutate(is_significant = pval < 0.05)
-```
-
-Plot t-values.
-```{r}
-var_names <- list(
-  "vcmax" = expression(paste(italic(V)[cmax25])),
-  "narea" = expression(paste(italic(N)[area])),
-  "nmass" = expression(paste(italic(N)[mass])),
-  "lma" = "LMA"
-)
-
-var_labeller <- function(variable, value){
-  return(var_names[value])
-}
-
-df_tvals |> 
-  filter(pred != "(Intercept)") |> 
-  ggplot(aes(pred, tval)) +
-  geom_hline(yintercept = 0, color = "grey70") +
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  labs(x = "") +
-  scale_x_discrete(labels = c("soil C:N", 
-                              expression(paste("log ", italic(N)[dep])), 
-                              "log VPD", 
-                              "PPFD", 
-                              expression(paste(italic(T)[g])))) +
-  scale_fill_manual(values = c("grey80", "grey30")) + 
-  coord_flip() +
-  facet_wrap(~factor(var, levels = c("vcmax", "narea", "nmass", "lma")),
-             labeller = var_labeller) + 
-  labs(y = expression(italic(t)-value)) +
-  theme(
-    strip.background = element_rect(fill = "grey70", color = NA),
-    strip.text = element_text(color = "black", size = 10),
-    legend.position = "none"
-  )
-
-ggsave(paste0(here::here(), "/fig/tvals_bars.pdf"), width = 8, height = 5)
-ggsave(paste0(here::here(), "/fig/tvals_bars.png"), width = 8, height = 5)
 ```
 
 Plot coefficients of normalised predictors.
@@ -607,6 +595,7 @@ df_tvals |>
   ggplot(aes(pred, coef)) +
   geom_hline(yintercept = 0, color = "grey70") +
   geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = coef - 1.96 * err, ymax = coef + 1.96 * err), width = 0.2) +
   theme_classic() +
   labs(x = "") +
   scale_x_discrete(labels = c("soil C:N", 
@@ -625,8 +614,8 @@ df_tvals |>
     legend.position = "none"
   )
 
-ggsave(paste0(here::here(), "/fig/coef_bars.pdf"), width = 8, height = 5)
-ggsave(paste0(here::here(), "/fig/coef_bars.png"), width = 8, height = 5)
+ggsave(here::here("fig_pub/coef_bars.pdf"), width = 8, height = 5)
+ggsave(here::here("fig_pub/coef_bars.png"), width = 8, height = 5)
 ```
 
 ```{r}

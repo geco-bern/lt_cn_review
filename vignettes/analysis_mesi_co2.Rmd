@@ -25,6 +25,13 @@ library(ggplot2)
 library(readr)
 library(metafor)     # for meta analysis
 library(MAd)         # for meta analysis
+library(here)
+```
+
+Load stuff for creating the references table. Get mesi-db data and source code for functions loaded below from https://github.com/MESI-organization/mesi-db. 
+```{r}
+library(xtable)
+source("~/mesi-db/R/create_table_latex.R")
 ```
 
 
@@ -110,34 +117,33 @@ df1 <- df0
 
 ```{r}
 ## create own variable names (myvar), grouping available variables (removed "gs")
-use_response <- c("asat", 
-                  "vcmax", 
-                  "jmax", 
-                  "gpp", 
-                  "leaf_n_area", 
-                  "leaf_n_mass", 
-                  "leaf_cn", 
-                  "anpp", 
-                  "agb", 
-                  # "leaf_biomass", 
-                  "lai", 
-                  "lai_max", 
-                  # "leaf_area", 
-                  "bgb", 
-                  "fine_root_biomass", 
-                  "root_production", 
-                  "fine_root_production", 
-                  "root_shoot_ratio", 
-                  "soil_no3-n", 
-                  "soil_nh4-n", 
-                  "soil_nh4", 
-                  "soil_no3", 
-                  "soil_solution_nh4", 
-                  "soil_solution_no3", 
-                  "root_n_uptake", 
-                  "root_nh4_uptake", 
-                  "root_no3_uptake"
-                  )
+use_response <- c(
+  "asat", 
+  "vcmax", 
+  "jmax", 
+  "gpp", 
+  "leaf_n_area", 
+  "leaf_n_mass", 
+  "leaf_cn", 
+  "anpp", 
+  "agb", 
+  "lai", 
+  "lai_max", 
+  "bgb", 
+  "fine_root_biomass", 
+  "root_production", 
+  "fine_root_production", 
+  "root_shoot_ratio", 
+  "soil_no3-n", 
+  "soil_nh4-n", 
+  "soil_nh4", 
+  "soil_no3", 
+  "soil_solution_nh4", 
+  "soil_solution_no3", 
+  "root_n_uptake", 
+  "root_nh4_uptake", 
+  "root_no3_uptake"
+  )
 
 df2 <- df1 %>% 
 
@@ -154,9 +160,9 @@ df2 <- df1 %>%
   mutate(myvar = ifelse(myvar %in%  c("lai", 
                                       "lai_max"), 
                         "lai", myvar)) %>% 
-  mutate(myvar = ifelse(myvar %in%  c("bgb", 
-                                      "fine_root_biomass"), 
-                        "bgb", myvar)) %>% 
+  # mutate(myvar = ifelse(myvar %in%  c("bgb", 
+  #                                     "fine_root_biomass"), 
+  #                       "bgb", myvar)) %>% 
   mutate(myvar = ifelse(myvar %in%  c("root_production", 
                                       "fine_root_production", 
                                       "coarse_root_production"),
@@ -282,7 +288,7 @@ df5 <- df4 %>%
     id = id, 
     es = logr, 
     var = logr_var,
-    cor = 1.0, 
+    cor = 0.5, 
     method = "BHHR", 
     data = . 
     ) %>% 
@@ -338,6 +344,102 @@ saveRDS(df_box, file = here::here("data/df_box_mesi_co2.rds"))
 ```
 
 ## Final data size
+
+### Asat
+
+```{r}
+df_experiments_co2_asat <- df5 |> 
+  filter(myvar == "asat") |> 
+  select(exp, myvar) |> 
+  left_join(
+    df |> 
+      select(exp, myvar = response, citation),
+    by = join_by(exp, myvar)
+  ) |> 
+  select(exp, citation) |> 
+  distinct() |> 
+  
+  # format for processing with latex
+  mutate(citation = paste0('\\', "cite{", citation, "}")) |> 
+  group_by(exp) |> 
+  summarise(
+    citation = paste0(unique(citation), collapse = ", ")
+  ) |> 
+  rename(
+    Experiment = exp,
+    Reference = citation
+  )
+
+create_table_latex(
+  df_experiments_co2_asat, 
+  caption = "Experiments and references from which data is used for calculating response ratios to CO$_2$ in the MESI database.", 
+  filn = here("manuscript/df_experiments_co2_asat.tex"),
+  align = c("p{0.1cm}", "p{5cm}", "p{7cm}")
+  )
+```
+
+### ALL
+
+Create table with experiments information.
+```{r}
+df_experiments_co2 <- df5 |> 
+  select(exp, myvar) |> 
+  left_join(
+    df |> 
+      select(exp, myvar = response, citation),
+    by = join_by(exp, myvar)
+  ) |> 
+  select(exp, myvar, citation) |> 
+  distinct() |> 
+  
+  # format for processing with latex
+  mutate(citation = paste0('\\', "cite{", citation, "}")) |> 
+  group_by(exp) |> 
+  summarise(
+    myvar = paste0(unique(myvar), collapse = ", "),
+    citation = paste0(unique(citation), collapse = ", ")
+  ) |> 
+  rename(
+    Experiment = exp,
+    `Variable code` = myvar,
+    Reference = citation
+  )
+
+# chunk 1
+create_table_latex(
+  df_experiments_co2 |> 
+    slice(1:11), 
+  caption = "Experiments, MESI, CO2", 
+  filn = here("manuscript/df_experiments_co2_01.tex"),
+  align = c("p{0.1cm}", "p{3cm}", "p{4cm}", "p{4cm}")
+  )
+
+# chunk 2
+create_table_latex(
+  df_experiments_co2 |> 
+    slice(12:22), 
+  caption = "Experiments, MESI, CO2", 
+  filn = here("manuscript/df_experiments_co2_02.tex"),
+  align = c("p{0.1cm}", "p{3cm}", "p{4cm}", "p{4cm}")
+  )
+
+# # Read the .tex file
+# lines <- readLines(here("manuscript/df_experiments_co2.tex"))
+# 
+# # Apply the processing function to each line
+# modified_lines <- process_cite_lines(lines)
+# 
+# # Write the modified lines to a new .tex file
+# writeLines(
+#   modified_lines, 
+#   here("manuscript/df_experiments_co2.tex")
+#   )
+
+write_csv(
+  df_experiments_co2,
+  file = here::here("data/df_experiments_co2.csv")
+)
+```
 
 Number of data points (plot-level measurements) per variable:
 ```{r}
@@ -565,14 +667,27 @@ df5 |>
 ggsave(paste0(here::here(), "/fig/logrr_co2_mesi.pdf"), width = 7, height = 5)
 ```
 
-
-
-Standard forest plots
+#### Forest plots
 
 ```{r}
-for (ivar in use_vars){
+for (ivar in unique(df2$myvar)){
   print(ivar)
-  try(metafor::forest(out[[ivar]]$modl))
+  tmp <- out[[ivar]]$modl
+  label <- df_labels |> 
+    filter(myvar == ivar) |> 
+    pull(mylabl)
+  pdf(
+    file = here(paste0("fig/forestplot_mesi_co2_", ivar, ".pdf")),
+    width = 8,
+    height = 0.2*nrow(tmp$data) + 4
+  )
+  try(
+    metafor::forest(
+      tmp,
+      header = c(ivar, "")
+      )
+    )
+  dev.off()
 }
 # purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
 ```
@@ -737,7 +852,7 @@ ggsave(paste0(here::here(), "/fig/eco2_mesi.png"), width = 10, height = 5)
 # N fertilisation experiments
 
 XXXXXXXXXX
-This is now done in `vignettes/Nfert_merge_MESI_NutNet_eperkowski.Rmd`, combining NutNet and MESI data for N-fertilisation.
+This is now done in `vignettes/analysis_mesi_nutnet_nfert.Rmd`, combining NutNet and MESI data for N-fertilisation.
 XXXXXXXXXX
 
 Select experiments from which we will use data.
@@ -900,7 +1015,7 @@ df4 <- df3 |>
     id = id,
     es = logr,
     var = logr_var,
-    cor = 1.0,
+    cor = 0.5,
     method = "BHHR",
     data = .
     )|>
@@ -945,7 +1060,7 @@ df4b <- df3 |>
     id = id,
     es = logr,
     var = logr_var,
-    cor = 1.0,
+    cor = 0.5,
     method = "BHHR",
     data = .
     )|>

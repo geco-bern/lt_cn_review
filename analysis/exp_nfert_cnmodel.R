@@ -5,11 +5,12 @@ library(patchwork)
 library(readr)
 library(lubridate)
 
-# detach("package:rsofun", unload = TRUE)
-library(rsofun)
-
-# commit hash
+# commit hash - corresponds to version in branch cnmodel used for final results
 commitnr <- "66b424142b500e07c41895dbb35d64e5bbdad49e"
+
+# detach("package:rsofun", unload = TRUE)
+devtools::install_github(paste0("stineb/rsofun@", commitnr))
+library(rsofun)
 
 ## Parameters ------------------------
 # in v3 manuscript:

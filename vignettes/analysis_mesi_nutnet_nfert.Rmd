@@ -407,7 +407,7 @@ df4 <- df3 %>%
     id = id, 
     es = logr, 
     var = logr_var,
-    cor = 1.0, 
+    cor = 0.5, 
     method = "BHHR", 
     data = . 
   ) %>% 
@@ -624,4 +624,29 @@ saveRDS(gg_nfert_cpl_agb_bgb_mesinutnet,
 gg_nfert_cpl_agb_bgb_mesinutnet
 ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesinutnet.pdf"), width = 6, height = 6)
 ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesinutnet.png"), width = 6, height = 6)
+```
+
+#### Forest plots
+
+```{r}
+for (ivar in unique(df2$myvar)){
+  print(ivar)
+  tmp <- out[[ivar]]$modl
+  label <- df_labels |> 
+    filter(myvar == ivar) |> 
+    pull(mylabl)
+  pdf(
+    file = here(paste0("fig/forestplot_mesi_nutnet_nfert_", ivar, ".pdf")),
+    width = 8,
+    height = 0.2*nrow(tmp$data) + 4
+  )
+  try(
+    metafor::forest(
+      tmp,
+      header = c(ivar, "")
+      )
+    )
+  dev.off()
+}
+# purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
 ```

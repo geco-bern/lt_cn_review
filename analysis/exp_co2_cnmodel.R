@@ -5,11 +5,12 @@ library(patchwork)
 library(readr)
 library(lubridate)
 
-# detach("package:rsofun", unload = TRUE)
-library(rsofun)
-
-# commit hash
+# commit hash - corresponds to version in branch cnmodel used for final results
 commitnr <- "66b424142b500e07c41895dbb35d64e5bbdad49e"
+
+# detach("package:rsofun", unload = TRUE)
+devtools::install_github(paste0("stineb/rsofun@", commitnr))
+library(rsofun)
 
 ## Parameters ------------------------
 # in v3 manuscript:
@@ -169,11 +170,9 @@ df_mean <- tmp$forcing[[1]] |>
 
 tmp$forcing[[1]] <- tmp$forcing[[1]] |>
   mutate(temp = df_growingseason_mean$temp,
-         prec = df_mean$prec,
          vpd = df_growingseason_mean$vpd,
          ppfd = df_mean$ppfd,
          patm = df_growingseason_mean$patm,
-         ccov_int = df_growingseason_mean$ccov_int,
          ccov = df_growingseason_mean$ccov,
          snow = df_mean$snow,
          rain = df_mean$rain,
@@ -214,7 +213,7 @@ tmp$forcing[[1]] <- tmp$forcing[[1]] |>
   select(-date2)
 
 tmp$forcing[[1]] |>
-  head(5000) |>
+  head(3000) |>
   ggplot(aes(date, co2)) +
   geom_line()
 
@@ -386,5 +385,7 @@ aout |>
 ## Write output to file with commit ID --------------------
 # readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_50c01ecbac0ad20114dc9cc28d67006af45f128e.csv"))
 # readr::write_csv(as_tibble(output), file = paste0(here::here(), "/data/output_cnmodel_co2_11cc17c508eb30dd8db91e5eafff1a6b4880e9a8.csv"))
-readr::write_csv(as_tibble(output), 
-                 file = paste0(here::here(), "/data/output_cnmodel_co2_", commitnr, ".csv"))
+readr::write_csv(
+  as_tibble(output),
+  file = paste0(here::here(), "/data/output_cnmodel_co2_", commitnr, ".csv")
+  )

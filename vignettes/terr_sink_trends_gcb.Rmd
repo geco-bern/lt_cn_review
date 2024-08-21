@@ -177,7 +177,7 @@ gg1 <- tmp |>
                                rbeni::add_alpha("tomato", 0.3), 
                                rbeni::add_alpha("royalblue", 0.3)),
                     name = "") +
-  labs(x = "Year", y = expression(paste("Sink (g C m"^2, "yr"^-1, ")")))
+  labs(x = "Year", y = expression(paste("Sink (Pg C yr"^-1, ")")))
 
 get_trend <- function(adf, year_start){
   adf <- adf |> 
@@ -225,45 +225,122 @@ colourCount = length(unique(df_models_trend$model))
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 set.seed(1986)
 
-# make long
-df_models_trend_long <- df_models_trend |> 
-  pivot_longer(cols = c(sland_mean, trend, iav),
-               names_to = "metric", 
-               values_to = "value")
-
-# plot with facet
-mylabels = c(
-  sland_mean = "Mean 2011-2020",
-  trend = "Trend 1959-2020"
-  )
-
-gg2 <- df_models_trend_long |> 
-  filter(metric != "iav") |> 
+gg2 <- df_models_trend |> 
   mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
          model = factor(model, 
                         levels = (c("Observations", 
                                     df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
-  ggplot(aes(x = type, y = value)) +
+  ggplot(aes(x = type, y = sland_mean)) +
   geom_boxplot(fill = "azure3", outlier.color = "white") +
-  geom_jitter(aes(color = model), width = 0.2, size = 3) + 
+  geom_jitter(aes(color = model), width = 0.2, size = 3, show.legend = FALSE) + 
   theme_classic() + 
-  scale_color_manual(values = c("black", sample(getPalette(colourCount)))) +
+  scale_color_manual(
+    values = c(
+      "CABLE-POP" = getPalette(colourCount)[1],
+      "CLASSIC" = getPalette(colourCount)[2],
+      "CLM5.0" = getPalette(colourCount)[3],
+      "DLEM" = getPalette(colourCount)[4],
+      "IBIS" = getPalette(colourCount)[5],
+      "ISAM" = getPalette(colourCount)[6],
+      "ISBA-CTRIP" = getPalette(colourCount)[7],
+      "JSBACH" = getPalette(colourCount)[8],
+      "JULES-ES" = getPalette(colourCount)[9],
+      "LPJ-GUESS" = getPalette(colourCount)[10],
+      "LPJ" = getPalette(colourCount)[11],
+      "LPX-Bern" = getPalette(colourCount)[12],
+      "OCNv2" = getPalette(colourCount)[13],
+      "ORCHIDEE-v3" = getPalette(colourCount)[14],
+      "SDGVM" = getPalette(colourCount)[15],
+      "VISIT" = getPalette(colourCount)[16],
+      "YIBs" = getPalette(colourCount)[17],
+      "Observations" = "black"
+    )
+    ) +
   labs(x = "Model type and observations", 
-       y = expression(paste("(g C m"^2, "yr"^-1, ")"))) +
-  facet_wrap(~metric, 
-             scales = "free", 
-             labeller = labeller(metric = mylabels)) +
+       y = expression(paste("Sink (Pg C yr"^-1, ")")),
+       title = "Mean 2011-2020") +
   theme(
-    strip.text = element_text(
-      size = 12, hjust = 0
-    ),
-    strip.background = element_rect(
-      color = NA
-    ),
     legend.title = element_blank()
   )
 
-cowplot::plot_grid(gg1, gg2, nrow = 2, rel_heights = c(0.8, 1), labels = c("a", "b", "c"))
+gg3 <- df_models_trend |> 
+  mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
+         model = factor(model, 
+                        levels = (c("Observations", 
+                                    df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
+  ggplot(aes(x = type, y = trend)) +
+  geom_boxplot(fill = "azure3", outlier.color = "white") +
+  geom_jitter(aes(color = model), width = 0.2, size = 3) + 
+  theme_classic() + 
+  scale_color_manual(
+    values = c(
+      "CABLE-POP" = getPalette(colourCount)[1],
+      "CLASSIC" = getPalette(colourCount)[2],
+      "CLM5.0" = getPalette(colourCount)[3],
+      "DLEM" = getPalette(colourCount)[4],
+      "IBIS" = getPalette(colourCount)[5],
+      "ISAM" = getPalette(colourCount)[6],
+      "ISBA-CTRIP" = getPalette(colourCount)[7],
+      "JSBACH" = getPalette(colourCount)[8],
+      "JULES-ES" = getPalette(colourCount)[9],
+      "LPJ-GUESS" = getPalette(colourCount)[10],
+      "LPJ" = getPalette(colourCount)[11],
+      "LPX-Bern" = getPalette(colourCount)[12],
+      "OCNv2" = getPalette(colourCount)[13],
+      "ORCHIDEE-v3" = getPalette(colourCount)[14],
+      "SDGVM" = getPalette(colourCount)[15],
+      "VISIT" = getPalette(colourCount)[16],
+      "YIBs" = getPalette(colourCount)[17],
+      "Observations" = "black"
+    )
+    ) +
+  labs(x = "Model type and observations", 
+       y = expression(paste("Sink trend (Pg C yr"^-2, ")")),
+       title = "Trend 1959-2020") +
+  theme(
+    legend.title = element_blank()
+  )
+
+# # make long
+# df_models_trend_long <- df_models_trend |> 
+#   pivot_longer(cols = c(sland_mean, trend, iav),
+#                names_to = "metric", 
+#                values_to = "value")
+# 
+# # plot with facet
+# mylabels = c(
+#   sland_mean = "Mean 2011-2020",
+#   trend = "Trend 1959-2020"
+#   )
+# 
+# gg2 <- df_models_trend_long |> 
+#   filter(metric != "iav") |> 
+#   mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
+#          model = factor(model, 
+#                         levels = (c("Observations", 
+#                                     df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
+#   ggplot(aes(x = type, y = value)) +
+#   geom_boxplot(fill = "azure3", outlier.color = "white") +
+#   geom_jitter(aes(color = model), width = 0.2, size = 3) + 
+#   theme_classic() + 
+#   scale_color_manual(values = c("black", sample(getPalette(colourCount)))) +
+#   labs(x = "Model type and observations", 
+#        y = expression(paste("(g C m"^2, "yr"^-1, ")"))) +
+#   facet_wrap(~metric, 
+#              scales = "free", 
+#              labeller = labeller(metric = mylabels)) +
+#   theme(
+#     strip.text = element_text(
+#       size = 12, hjust = 0
+#     ),
+#     strip.background = element_rect(
+#       color = NA
+#     ),
+#     legend.title = element_blank()
+#   )
+
+bottomrow <- cowplot::plot_grid(gg2, gg3, nrow = 1, rel_widths = c(0.8, 1), labels = c("b", "c"))
+cowplot::plot_grid(gg1, bottomrow, nrow = 2, rel_heights = c(0.8, 1), labels = c("a", "", ""))
 ggsave(here::here("fig_pub/sink_trend_trendy.pdf"), width = 1.7*6, height = 1.7*5)
 ggsave(here::here("fig_pub/sink_trend_trendy.png"), width = 1.7*6, height = 1.7*5)
 
