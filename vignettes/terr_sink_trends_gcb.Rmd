@@ -187,6 +187,14 @@ get_trend <- function(adf, year_start){
   return(sinktrend)
 }
 
+get_trend_unc <- function(adf, year_start){
+  adf <- adf |> 
+    filter(Year >= year_start)
+  linmod <- lm(sland ~ Year, data = adf)
+  unc <- summary(linmod)$coefficients["Year", "Std. Error"]
+  return(unc)
+}
+
 get_iav <- function(adf, year_start){
   adf <- adf |> 
     filter(Year >= year_start)
@@ -202,6 +210,13 @@ get_sland_mean <- function(adf, use_years){
     pull(sland)
 }
 
+get_sland_sd <- function(adf, use_years){
+  adf |> 
+    filter(Year %in% use_years) |> 
+    summarise(sland = sd(sland)) |> 
+    pull(sland)
+}
+
 df_models_trend <- df_models |> 
   bind_rows(
     df |> 
@@ -210,9 +225,13 @@ df_models_trend <- df_models |>
   ) |> 
   group_by(model) |> 
   nest() |> 
-  mutate(trend = purrr::map_dbl(data, ~get_trend(., year_start = 1959)),
-         iav = purrr::map_dbl(data, ~get_iav(., year_start = 1959)),
-         sland_mean = purrr::map_dbl(data, ~get_sland_mean(., use_years = 2011:2020))) |> 
+  mutate(
+    trend = purrr::map_dbl(data, ~get_trend(., year_start = 1959)),
+    trend_unc = purrr::map_dbl(data, ~get_trend_unc(., year_start = 1959)),
+    iav = purrr::map_dbl(data, ~get_iav(., year_start = 1959)),
+    sland_mean = purrr::map_dbl(data, ~get_sland_mean(., use_years = 2011:2020)),
+    sland_sd = purrr::map_dbl(data, ~get_sland_sd(., use_years = 2011:2020))
+    ) |> 
   left_join(
     df_modeltypes,
     by = "model"
@@ -225,14 +244,45 @@ colourCount = length(unique(df_models_trend$model))
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 set.seed(1986)
 
-gg2 <- df_models_trend |> 
+df_plot2 <- df_models_trend |> 
   mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
          model = factor(model, 
                         levels = (c("Observations", 
-                                    df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
-  ggplot(aes(x = type, y = sland_mean)) +
-  geom_boxplot(fill = "azure3", outlier.color = "white") +
-  geom_jitter(aes(color = model), width = 0.2, size = 3, show.legend = FALSE) + 
+                                    df_models_trend$model[-which(df_models_trend$model == "Observations")]))))
+
+gg2 <- ggplot() +
+  geom_boxplot(
+    aes(
+      x = type, 
+      y = sland_mean
+      ),
+    data = df_plot2 |> 
+      mutate(sland_mean = ifelse(type == "Obs.", NA, sland_mean)),
+    fill = "azure3", 
+    outlier.color = "white"
+    ) +
+  geom_jitter(
+    aes(x = type, y = sland_mean, color = model),
+    data = df_plot2 |> 
+      mutate(sland_mean = ifelse(type == "Obs.", NA, sland_mean)),
+    width = 0.2, 
+    size = 3, 
+    show.legend = FALSE
+    ) + 
+  geom_pointrange(
+    aes(
+      x = type, 
+      y = sland_mean, 
+      color = model, 
+      ymin = sland_mean - 1.96 * sland_sd, 
+      ymax = sland_mean + 1.96 * sland_sd
+      ),
+    data = df_plot2 |> 
+      mutate(sland_mean = ifelse(type != "Obs.", NA, sland_mean)),
+    width = 0.2, 
+    size = 1, 
+    show.legend = FALSE
+    ) + 
   theme_classic() + 
   scale_color_manual(
     values = c(
@@ -263,14 +313,48 @@ gg2 <- df_models_trend |>
     legend.title = element_blank()
   )
 
-gg3 <- df_models_trend |> 
+df_plot3 <- df_models_trend |> 
   mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
          model = factor(model, 
                         levels = (c("Observations", 
-                                    df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
-  ggplot(aes(x = type, y = trend)) +
-  geom_boxplot(fill = "azure3", outlier.color = "white") +
-  geom_jitter(aes(color = model), width = 0.2, size = 3) + 
+                                    df_models_trend$model[-which(df_models_trend$model == "Observations")]))))
+
+gg3 <- ggplot() +
+  geom_boxplot(
+    aes(
+      x = type, 
+      y = trend
+      ),
+    data = df_plot3 |> 
+      mutate(trend = ifelse(type == "Obs.", NA, trend)),
+    fill = "azure3", 
+    outlier.color = "white"
+    ) +
+  geom_jitter(
+    aes(
+      x = type, 
+      y = trend, 
+      color = model
+      ),
+    data = df_plot3 |> 
+      mutate(trend = ifelse(type == "Obs.", NA, trend)),
+    width = 0.2, 
+    size = 3
+    ) + 
+  geom_pointrange(
+    aes(
+      x = type, 
+      y = trend, 
+      color = model, 
+      ymin = trend - 1.96 * trend_unc, 
+      ymax = trend + 1.96 * trend_unc
+      ),
+    data = df_plot2 |> 
+      mutate(trend = ifelse(type != "Obs.", NA, trend)),
+    width = 0.2, 
+    size = 1, 
+    show.legend = FALSE
+    ) + 
   theme_classic() + 
   scale_color_manual(
     values = c(
@@ -301,43 +385,6 @@ gg3 <- df_models_trend |>
     legend.title = element_blank()
   )
 
-# # make long
-# df_models_trend_long <- df_models_trend |> 
-#   pivot_longer(cols = c(sland_mean, trend, iav),
-#                names_to = "metric", 
-#                values_to = "value")
-# 
-# # plot with facet
-# mylabels = c(
-#   sland_mean = "Mean 2011-2020",
-#   trend = "Trend 1959-2020"
-#   )
-# 
-# gg2 <- df_models_trend_long |> 
-#   filter(metric != "iav") |> 
-#   mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
-#          model = factor(model, 
-#                         levels = (c("Observations", 
-#                                     df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
-#   ggplot(aes(x = type, y = value)) +
-#   geom_boxplot(fill = "azure3", outlier.color = "white") +
-#   geom_jitter(aes(color = model), width = 0.2, size = 3) + 
-#   theme_classic() + 
-#   scale_color_manual(values = c("black", sample(getPalette(colourCount)))) +
-#   labs(x = "Model type and observations", 
-#        y = expression(paste("(g C m"^2, "yr"^-1, ")"))) +
-#   facet_wrap(~metric, 
-#              scales = "free", 
-#              labeller = labeller(metric = mylabels)) +
-#   theme(
-#     strip.text = element_text(
-#       size = 12, hjust = 0
-#     ),
-#     strip.background = element_rect(
-#       color = NA
-#     ),
-#     legend.title = element_blank()
-#   )
 
 bottomrow <- cowplot::plot_grid(gg2, gg3, nrow = 1, rel_widths = c(0.8, 1), labels = c("b", "c"))
 cowplot::plot_grid(gg1, bottomrow, nrow = 2, rel_heights = c(0.8, 1), labels = c("a", "", ""))
@@ -346,28 +393,7 @@ ggsave(here::here("fig_pub/sink_trend_trendy.png"), width = 1.7*6, height = 1.7*
 
 gg1
 ggsave(here::here("fig/sink_trend_trendy_tseries.pdf"), width = 1.7*6, height = 4)
-```
 
-```{r}
-# only boxplot for trend
-set.seed(3)
-gg3 <- df_models_trend_long |> 
-  filter(metric == "trend") |> 
-  mutate(type = factor(type, levels = c("CN", "C", "Obs.")),
-         model = factor(model, 
-                        levels = (c("Observations", 
-                                    df_models_trend$model[-which(df_models_trend$model == "Observations")])))) |>  
-  ggplot(aes(x = type, y = value)) +
-  geom_boxplot(fill = "azure3", outlier.color = "white") +
-  geom_jitter(aes(color = model), width = 0.2, size = 3) + 
-  theme_classic() + 
-  scale_color_manual(values = c("black", sample(getPalette(colourCount)))) +
-  labs(x = "Model type and observations", 
-       y = expression(paste("Sink (g C m"^2, "yr"^-1, ")")),
-       title = "Trend 1959-2020") +
-  theme(
-    legend.title = element_blank()
-  )
 gg3
 ggsave(here::here("fig/sink_trend_trendy_boxplot_trend.pdf"), width = 6, height = 5)
 ```
