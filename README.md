@@ -1,10 +1,12 @@
 # lt_cn_review
 
-Analyses of the review paper on C-N modelling by the LEMONTREE N cycle WG.
+This repository contains analysis code for the following publication:
+
+Stocker et al., Empirical evidence and theoretical understanding of ecosystem carbon and nitrogen cycle interactions, (accepted for publication as a *Tansley Review* in *New Phytologist*, 6.9.2024)
 
 Author: Benjamin Stocker, Uni Bern
 
-This consists of different analyses, implemented in separate scripts and notebooks:
+It consists of different analyses, implemented in separate scripts and notebooks:
 
 ## Workflow
 
@@ -48,7 +50,7 @@ Experiment data by Evan Perkowski on (Vcmax, Jmax) \~ N-fert: `vignettes/analysi
 
 ## Publication figures
 
-All publication figures are in `fig_pub/`.
+All publication figures are in `fig_pub/` and are created by the following scripts, provided as RMarkdown files in the `vignettes/` folder:
 
 -   Fig. 1: `sink_trend_trendy.pdf`, Created by `terr_sink_trends_gcb.Rmd`
 
@@ -62,4 +64,4 @@ All publication figures are in `fig_pub/`.
 
 -   Fig. 6: `combined_metaanalysis_cnmodel.pdf`, created by `comparison_mesi_cnmodel.Rmd`
 
--   Fig. 7:
+The supporting information notes are created with Latex code (`.tex` files) in `manuscript/`.
