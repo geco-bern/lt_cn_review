@@ -1,0 +1,47 @@
+\documentclass{myreport}
+
+% References
+\bibliographystyle{copernicus.bst}
+
+\begin{document}
+\pagestyle{headings}
+
+% Change figure (table, section) numbering (e.g., from 'Figure 1' to 'Figure S1')
+\renewcommand{\thefigure}{\arabic{figure}}
+\renewcommand{\thetable}{\arabic{table}}
+\renewcommand{\thesection}{Notes S\arabic{section}}
+\renewcommand{\theequation}{\arabic{equation}}
+
+\setcounter{section}{3}
+
+% Document must include
+% ---------------------
+% 
+
+%% Title
+\title{SUPPLEMENTARY INFORMATION:\\
+Empirical evidence and theoretical understanding of ecosystem carbon and nitrogen cycle interactions}
+\author{Benjamin D. Stocker, Ning Dong, Evan A. Perkowski, Pascal D. Schneider,
+Huiying Xu, Hugo de Boer, Karin T. Rebel, Nicholas G. Smith, Kevin Van Sundert, Han Wang, Sarah E. Jones, I. Colin Prentice and Sandy P. Harrison} 
+
+% \maketitle
+
+\section{CN-model simulations}
+
+The CN-model is used here for two point-scale simulations - one with a step-increase to elevated CO$_2$ and one with a step-increase in reactive N input. For both simulations, the daily meteorological forcing time series are derived from FLUXNET2015 data for the site FR-Pue \citep{rambal_growth_2004} - the site of an evergreen forest in southern France. For the demonstration purpose of the simulations here, we forced the model with constant meteorological conditions in each day and simulation year. Constant meteorological conditions were taken as growing-season mean, i.e., the average over all days where air temperature was above 5$^\circ$C. Effects of limiting root-zone water availability are not considered for the CN-model simulations. 
+
+The ambient daily N deposition is set to 0.003 gN m$^{-2}$ d$^{-1}$. These values are chosed such that the annual sum of NO$_3$ and NH$_4$ correspond to values for this site location estimated by global atmospheric chemitry and transport modelling \citep{lamarque_global_2011}.
+
+No biomass harvesting, nor external seed input was considered.
+
+For the CO$_2$ experiment, the atmospheric concentration was doubled, from 389 ppm to 778 ppm, within one year. The simulated and observed responses to elevated CO$_2$ were normalised with the change in CO$_2$ (see \ref{sec:statisticalanalysis}) for the evaluation against observations from the experiments meta-analysis. For the N-fertilisation experiment, the reactive N input was increased from the ambient level to 12 gN m$^{-2}$ d$^{-1}$. This corresponds to the average rate of fertilisation experiments in \citep{liang_global_2020}. Simulated response ratios were evaluated as means across ten years (year 5 to 15) after the step-increase, and referenced against three years before the step-increase. The first four years after the step-increase were omitted because of oscillating behaviour of the modelled system, which got attenuated thereafter.
+
+Model simulations were performed with the model as implemented in the {rsofun} modelling framework available from \url{https://github.com/stineb/rsofun/tree/cnmodel} branch \texttt{cnmodel}, commit hash number \texttt{66b424142b500e07c41895dbb35d64e5bbdad49e}). Model parameters are specified in the scripts available on Github (\url{https://github.com/stineb/lt_cn_review/blob/main/analysis/exp_co2_cnmodel.R} and \url{https://github.com/stineb/lt_cn_review/blob/main/analysis/exp_nfert_cnmodel.R}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliography{references_cnreview.bib}
+
+
+\end{document}
+

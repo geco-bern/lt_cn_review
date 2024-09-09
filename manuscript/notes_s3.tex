@@ -1,0 +1,62 @@
+\documentclass{myreport}
+
+% References
+\bibliographystyle{copernicus.bst}
+
+\begin{document}
+\pagestyle{headings}
+
+% Change figure (table, section) numbering (e.g., from 'Figure 1' to 'Figure S1')
+\renewcommand{\thefigure}{\arabic{figure}}
+\renewcommand{\thetable}{\arabic{table}}
+\renewcommand{\thesection}{Notes S\arabic{section}}
+\renewcommand{\theequation}{\arabic{equation}}
+
+\setcounter{section}{2}
+
+% Document must include
+% ---------------------
+% 
+
+%% Title
+\title{SUPPLEMENTARY INFORMATION:\\
+Empirical evidence and theoretical understanding of ecosystem carbon and nitrogen cycle interactions}
+\author{Benjamin D. Stocker, Ning Dong, Evan A. Perkowski, Pascal D. Schneider,
+Huiying Xu, Hugo de Boer, Karin T. Rebel, Nicholas G. Smith, Kevin Van Sundert, Han Wang, Sarah E. Jones, I. Colin Prentice and Sandy P. Harrison} 
+
+% \maketitle
+
+
+\section{Analysis of global leaf traits data}
+
+The analysis was based on data from \citet{dong22jecol}, obtained through Zenodo \citep{dong22zenodo}. The data contains 3143 observations from 2078 different plant species, collected at 302 different sites where plants were growing under natural conditions (not experimentally disturbed). The target variables of the analysis are leaf N content per unit leaf area ($N_\text{area}$, leaf N content per unit leaf mass ($N_\text{mass}$, leaf dry mass perunit leaf area (LMA), and the Rubisco carboxylation capacity at the standard temperature of 25$^\circ$C - a measure of the capacity of photosynthesis under non-light limiting conditions and linked with the leaf metabolic N content through the N-richness of Rubisco. All target variables were log-transformed to improve normality of the model residuals. 
+
+Soil C:N ratio was extracted from ISRIC WISE30sec \citep{batjes_harmonized_2016}. Growth temperature ($T_\text{growth}$) was derived from the monthly climatology of WorldClim extracted from global 1 km resolution maps \citep{fick_worldclim_2017} and calculated as the daytime mean temperature (conversion of mean daily to daytime mean temperature following \citet{jones_plants_2013}, see Eq. 9 in \citet{dong22jecol}) of months for which the daytime temperature was $>0^\circ$C. The photosynthetic photon flux density (PPFD) was calculated as a linear function of shorwave incoming radiation. Vapour pressure deficit (VPD) was calculated from monthly climatologies of vapour pressure, daily minimum and maximum temperature from WorldClim as
+\begin{equation}
+\text{VPD} = \left(\text{VPD}(e_a, T_\text{min}) + \text{VPD}(e_a, T_\text{max})\right)/2\;,
+\end{equation}
+with 
+\begin{equation}
+\text{VPD}(e_a, T) = e_s - e_a \;,
+\end{equation}
+where $e_a$ is the actual vapour pressure, obtained from WorldClim. and $e_s$ is the saturation vapour pressure, calculated as
+\begin{equation}
+e_s = 611.0 \; \exp \left( \frac{17.27 \; T}{T + 237.3} \right) \;.
+\end{equation}
+Also VPD and PPFD were averaged over months with mean growth temperatures above freezing from the monthly WorldClim climatology to obtain a growing-season mean.
+
+Nitrogen deposition was taken from \citet{lamarque_global_2011} as the sum of atmospheric deposition of NH$_x$ and NO$_y$ and averaged over years 1990 to 2009. N deposition and VPD were log-transformed for further analysis since their distributions were highly asymmetric.
+
+Ordinary least-squares linear regression models were fitted separately for each target variable with the same centered and scaled predictors. Centering and scaling enables the quantitative comparison of fitted coefficients as a measure of variable importance and partial effect magnitude. Variance inflation factors were below five for all variables. Values for the `normalised slope' shown in Fig. 5 of the main text are taken as the coefficients of the five predictors determined from the fitted linear regression models of each target variable.
+
+A summary of the models, including coefficients and goodness-of-fit metrics, is given in Table \ref{tab:modelfits}.
+
+\input{traits_models_table.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliography{references_cnreview.bib}
+
+
+\end{document}
+

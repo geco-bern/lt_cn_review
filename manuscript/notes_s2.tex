@@ -1,0 +1,255 @@
+\documentclass{myreport}
+
+% References
+\bibliographystyle{copernicus.bst}
+
+\begin{document}
+\pagestyle{headings}
+
+% Change figure (table, section) numbering (e.g., from 'Figure 1' to 'Figure S1')
+\renewcommand{\thefigure}{\arabic{figure}}
+\renewcommand{\thetable}{\arabic{table}}
+\renewcommand{\thesection}{Notes S\arabic{section}}
+\renewcommand{\theequation}{\arabic{equation}}
+
+\setcounter{section}{1}
+
+% Document must include
+% ---------------------
+% 
+
+%% Title
+\title{SUPPLEMENTARY INFORMATION:\\
+Empirical evidence and theoretical understanding of ecosystem carbon and nitrogen cycle interactions}
+\author{Benjamin D. Stocker, Ning Dong, Evan A. Perkowski, Pascal D. Schneider,
+Huiying Xu, Hugo de Boer, Karin T. Rebel, Nicholas G. Smith, Kevin Van Sundert, Han Wang, Sarah E. Jones, I. Colin Prentice and Sandy P. Harrison} 
+
+% \maketitle
+
+\section{Meta-analysis of ecosystem experiments}
+
+\subsection{Statistical analysis}
+\label{sec:statisticalanalysis}
+
+The natural logarithm of the response ratio of the means and its variance were calculated for each response variable, experiment, treatment, and sampling year, using information about the the number of repeated measurements (multiple experimental plots, multiple sampling dates per year). This was done using the function \texttt{escalc(measure="ROM", ...)} from the \{metafor\} R package \citep{viechtbauer_conducting_2010}. The standard error was calculated as $\text{SE} = \sqrt{\text{var}/N}$, where $N$ is the number of repeated measurements.
+
+For CO$_2$ experiments, the response ratio was normalised with (divided by) the natural logarithm of the ratio of elevated over ambient CO$_2$ concentrations.
+
+Data was then aggregated by experiment using the procedure based on \citet{borenstein_effect_2009}, implemented by the function \texttt{agg(method = "BHHR", ...)} from the \{MAd\} R package \citep{mad_r_package}, and assuming a correlation of within-study response ratios of 0.5.
+
+Finally, the meta-analysis of responses across experiments was performed as a mixed-effects meta-regression model using experiment as the grouping variable for random factors, and fitted via the restricted maximum likelihood esimation. This is implemented using the function \texttt{rma.mv(method = "REML", ...)} from the \{metafor\} R package \citep{viechtbauer_conducting_2010}. The confidence intervals (edges of boxes in Fig. 3) of the meta-analytic mean response ratio (bold line inside boxes in Fig. 3) span 95\%. 
+
+
+\subsection{Response to CO$2$, MESI data}
+
+\subsubsection{Data selection}
+
+Data were used from the Manipulation Experiments Synthesis Initiative (MESI) database \citep{vansundert_when_2023}, obtained from GitHub (\url{https://github.com/MESI-organization/mesi-db}). For CO$_2$ experiments, we considered only data from Free Air CO$_2$ Enrichment (FACE) experiments and from open-top chamber experiments, from experiments that provided data from at least three years. For data generated in multi-factorial experiments, we used only data from the CO$_2$-only treatment (no interactions with other experimentally manipulated factors considered). Variables shown in this manuscript (Fig. 3, 4, and 6 in this study) were identified by the response variable name in the database according to Tab. \ref{tab:varnams_mesi}.
+
+\begin{table}
+ \caption{Variables in the MESI database used for the analysis.}
+\begin{tabular}{p{0.2\linewidth} p{0.2\linewidth} p{0.6\linewidth}}
+  \toprule
+  Variable name & Variable code & Variable names in MESI  \\
+  \midrule
+  AGB & agb & \texttt{agb\_coarse}, \texttt{agb} \\
+  BGB & bgb & \texttt{bgb}, \texttt{fine\_root\_biomass}, \texttt{coarse\_root\_c\_stock}, \texttt{bgb\_coarse} \\
+  LAI & lai & \texttt{lai}, \texttt{lai\_max} \\
+  Root NPP & root\_production & \texttt{root\_production}, \texttt{fine\_root\_production}, \texttt{coarse\_root\_production} \\
+  N uptake & n\_uptake & \texttt{root\_n\_uptake}, \texttt{root\_nh4\_uptake}, \texttt{root\_no3\_uptake} \\
+  Inorganic N & n\_inorg & \texttt{soil\_no3-n}, \texttt{soil\_nh4-n}, \texttt{soil\_nh4}, \texttt{soil\_no3}, \texttt{soil\_solution\_nh4}, \texttt{soil\_solution\_no3} \\
+  $A_\text{sat}$ & asat & \texttt{asat} \\
+  $V_\text{cmax}$ & vcmax & \texttt{vcmax} \\
+  $J_\text{max}$ & jmax & \texttt{jmax} \\
+  GPP & gpp & \texttt{gpp} \\
+  $N_\text{area}$ & leaf\_n\_area & \texttt{leaf\_n\_area} \\
+  $N_\text{mass}$ & leaf\_n\_mass & \texttt{leaf\_n\_mass} \\
+  Leaf C:N & leaf\_cn & \texttt{leaf\_cn} \\
+  ANPP & anpp & \texttt{anpp} \\
+  Root:shoot & root\_shoot\_ratio & \texttt{root\_shoot\_ratio} \\
+  \bottomrule
+\end{tabular}
+\label{tab:varnams_mesi}
+\end{table}
+
+\subsubsection{Extended results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_asat.pdf}
+\caption{Response of leaf-level assimilation under light-saturated conditions ($A_\text{sat}$) to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+% \input{df_experiments_co2_asat.tex}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_gpp.pdf}
+\caption{Response of GPP to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_vcmax.pdf}
+\caption{Response of $V_\text{cmax}$ to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_leaf_n_area.pdf}
+\caption{Response of leaf $N_\text{area}$ to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_leaf_n_mass.pdf}
+\caption{Response of leaf $N_\text{mass}$ to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_leaf_cn.pdf}
+\caption{Response of leaf C:N to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_lai.pdf}
+\caption{Response of LAI to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_anpp.pdf}
+\caption{Response of aboveground net primary productivity (ANPP) to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.6\textwidth]{../fig/forestplot_mesi_co2_agb.pdf}
+\caption{Response of aboveground biomass (AGB) to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_co2_root_production.pdf}
+\caption{Response of root biomass productivity to elevated CO$_2$ in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\clearpage
+
+\subsection{Response to N-fertilisation, MESI and NutNet data}
+
+\subsubsection{Data selection}
+
+Data were used from the Manipulation Experiments Synthesis Initiative (MESI) database \citep{vansundert_when_2023}, obtained from GitHub (\url{https://github.com/MESI-organization/mesi-db}). For variables belowground biomass (bgb, \texttt{Rootsgperm2} in NutNet), root mass fraction (rmf, \texttt{rootmassfraction} in NutNet), aboveground biomass (agb), and the root:shoot ratio (root\_shoot\_ratio), we combined MESI data with data from the meta-analysis of the NutNet experiments network by \citet{cleland_belowground_2019}. Aboveground biomass from NutNet data was calculated as (bgb/rmf) $-$ bgb. The root:shoot ratio from NutNet data was calculated as bgb/agb. 
+
+For MESI data, only data from field experiments were used for which the N application rate was less or equal to 300 kg N ha$^{-1}$ yr$^{-1}$. For data generated in multi-factorial experiments, we used only data from the N-fertilisation-only treatment (no interactions with other experimentally manipulated factors considered). Variables shown in this manuscript (Fig. 3, 4, and 6 in this study) were identified by the response variable name in the database according to Tab. \ref{tab:varnams_mesi}.
+
+\subsubsection{Extended results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.4\textwidth]{../fig/forestplot_mesi_nutnet_nfert_agb.pdf}
+\caption{Response of aboveground biomass (agb) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{../fig/forestplot_mesi_nutnet_nfert_bgb.pdf}
+\caption{Response of belowground biomass (bgb) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../fig/forestplot_mesi_nutnet_nfert_anpp.pdf}
+\caption{Response of aboveground net primariy production (anpp) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_nutnet_nfert_n_inorg.pdf}
+\caption{Response of soil inorganic nitrogen (n\_inorg) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_nutnet_nfert_root_production.pdf}
+\caption{Response of root biomass production (root\_production) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../fig/forestplot_mesi_nutnet_nfert_root_shoot_ratio.pdf}
+\caption{Response of the root:shoot ratio (root\_shoot\_ratio) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_mesi_nutnet_nfert_n_uptake.pdf}
+\caption{Response of the N uptake ratio (n\_uptake) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\clearpage
+
+\subsection{Response to N-fertilisation, Liang et al. data}
+
+\subsubsection{Data selection}
+
+Data were used from the meta-analysis by \citet{liang_global_2020} for which the N application rate was less or equal to 300 kg N ha$^{-1}$ yr$^{-1}$.
+
+\subsubsection{Extended results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.6\textwidth]{../fig/forestplot_liangetal_nfert_Aarea.pdf}
+\caption{Response of leaf-level assimilation rate (Aarea), here interpreted as representative for light-saturated conditions, to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_Vcmax.pdf}
+\caption{Response of $V_\text{cmax}$ to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_Narea.pdf}
+\caption{Response of $N_\text{area}$ (Narea) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.4\textwidth]{../fig/forestplot_liangetal_nfert_Nmass.pdf}
+\caption{Response of $N_\text{mass}$ (Nmass) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_LAI.pdf}
+\caption{Response of the leaf area index (LAI) to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../fig/forestplot_liangetal_nfert_Leaf_biomass.pdf}
+\caption{Response of leaf biomass to N-fertilisation in individual experiments and meta-analytic mean across experiments. Plot created with \texttt{forest} from the \{metafor\} R package \cite{viechtbauer_conducting_2010}.}
+\end{figure}
+
+\clearpage
+
+% % Experiments reference table
+% \input{df_experiments_co2_01.tex}
+% \clearpage
+% \input{df_experiments_co2_02.tex}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliography{references_cnreview.bib}
+
+
+\end{document}
+
