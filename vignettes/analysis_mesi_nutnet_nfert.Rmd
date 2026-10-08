@@ -30,6 +30,7 @@ df_nutnet <- read_csv(paste0(here::here(), "/data/Cleland_2019_data.csv")) %>%
   rename(bgb = Rootsgperm2, rmf = rootmassfraction) %>%
   mutate(agb = (bgb/rmf) - bgb,
          root_shoot_ratio = bgb / agb)
+         
 ```
 
 # NutNet data from Cleland et al. (2019)
@@ -483,7 +484,7 @@ Number of data points (plot-level measurements) per variable:
 df4_combined %>% 
   group_by(myvar) %>% 
   summarise(n_plots = sum(n_c, na.rm = TRUE), n_exp = n()) %>% 
-  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  rename("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>% 
   knitr::kable()
 ```
 
@@ -492,7 +493,7 @@ Number of data points (plot-level measurements) per experiment:
 df4_combined %>% 
   group_by(exp) %>% 
   summarise(n_plots = sum(n_c), n_exp = n()) %>% 
-  rename_("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>% 
+  rename("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>% 
   knitr::kable()
 ```
 
@@ -544,22 +545,22 @@ gg_nfert_mesinutnet <- df4_combined %>%
        y = "Log response ratio") +
   coord_flip() +
   ylim(-1, 3.5) +
-  ggtitle(expression(bold("Response to N")), subtitle = "MESI + NutNet data") +
-  theme_classic() +
-  theme(
-    plot.title.position = "plot",
-    plot.title = element_text( hjust = 0.98, 
-                               vjust = 0, 
-                               face = 'bold', 
-                               margin = margin(t=20, b=-30),
-                               size = 17
-                               ),
-    plot.subtitle = element_text( hjust = 0.98, 
-                                  vjust = -3, 
-                                  margin = margin(t=20, b=-30),
-                                  size = 15
-                                  )
-  )
+  # ggtitle(expression(bold("Response to N")), subtitle = "MESI + NutNet data") +
+  theme_classic()
+  # theme(
+  #   plot.title.position = "plot",
+  #   plot.title = element_text( hjust = 0.98, 
+  #                              vjust = 0, 
+  #                              face = 'bold', 
+  #                              margin = margin(t=20, b=-30),
+  #                              size = 17
+  #                              ),
+  #   plot.subtitle = element_text( hjust = 0.98, 
+  #                                 vjust = -3, 
+  #                                 margin = margin(t=20, b=-30),
+  #                                 size = 15
+  #                                 )
+  # )
 
 saveRDS(gg_nfert_mesinutnet, file = paste0(here::here(), "/data/gg_nfert_mesinutnet.rds"))
 
@@ -628,7 +629,9 @@ ggsave(paste0(here::here(), "/fig/nfert_cpl_agb_bgb_mesinutnet.png"), width = 6,
 
 #### Forest plots
 
-```{r}
+<!-- 
+
+```{r eval=FALSE}
 for (ivar in unique(df2$myvar)){
   print(ivar)
   tmp <- out[[ivar]]$modl
@@ -649,4 +652,5 @@ for (ivar in unique(df2$myvar)){
   dev.off()
 }
 # purrr::map(as.list(use_vars), ~try(metafor::forest(out[[.]]$modl)))
-```
+``` 
+-->

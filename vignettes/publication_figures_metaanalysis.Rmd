@@ -8,6 +8,9 @@ output: html_document
 ## Load data
 
 ```{r}
+library(ggplot2)
+library(cowplot)
+
 # Produced by vignettes/analysis_mesi.Rmd
 gg_eco2_mesi <- readRDS(file = paste0(here::here(), "/data/gg_eco2_mesi.rds"))
 gg_nfert_mesi <- readRDS(file = paste0(here::here(), "/data/gg_nfert_mesi.rds"))
@@ -26,23 +29,63 @@ gg_nfert_cpl_agb_bgb_mesinutnet <- readRDS(file = paste0(here::here(), "/data/gg
 
 ```{r}
 # combined meta-analysis plot
-cowplot::plot_grid(gg_nfert_liang,
-                   gg_nfert_mesinutnet,
-                   gg_eco2_mesi, 
-                   rel_heights = c(0.40, 0.50, 0.77), 
-                   labels = c("a", "b", "c"),
-                   ncol = 1)
+cowplot::plot_grid(
+  gg_nfert_liang,
+  gg_nfert_mesinutnet,
+  gg_eco2_mesi,
+  rel_heights = c(0.40, 0.50, 0.77),
+  labels = c("a", "b", "c"),
+  ncol = 1
+)
 
-ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis.pdf"), width = 8, height = 11)
-ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis.png"), width = 8, height = 11)
+ggsave(
+  paste0(here::here(), "/fig_pub/combined_metaanalysis.pdf"),
+  width = 8,
+  height = 11
+)
+ggsave(
+  paste0(here::here(), "/fig_pub/combined_metaanalysis.png"),
+  width = 8,
+  height = 11
+)
+
+# N-fert only
+cowplot::plot_grid(
+  gg_nfert_liang,
+  gg_nfert_mesinutnet,
+  rel_heights = c(0.40, 0.50),
+  labels = c("a", "b"),
+  ncol = 1
+)
+
+ggsave(
+  paste0(here::here("fig_pub/nfert_metaanalysis.pdf")),
+  width = 8,
+  height = 6
+)
+ggsave(
+  paste0(here::here("fig_pub/nfert_metaanalysis.png")),
+  width = 8,
+  height = 6
+)
 
 
 # couplings of AGB and BGB
-cowplot::plot_grid(gg_eco2_cpl_agb_bgb_mesi, 
-                   gg_nfert_cpl_agb_bgb_mesinutnet,
-                   ncol = 2,
-                   labels = c("a", "b"))
+cowplot::plot_grid(
+  gg_eco2_cpl_agb_bgb_mesi,
+  gg_nfert_cpl_agb_bgb_mesinutnet,
+  ncol = 2,
+  labels = c("a", "b")
+)
 
-ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis_couplings.pdf"), width = 10, height = 5)
-ggsave(paste0(here::here(), "/fig_pub/combined_metaanalysis_couplings.png"), width = 10, height = 5)
+ggsave(
+  paste0(here::here(), "/fig_pub/combined_metaanalysis_couplings.pdf"),
+  width = 10,
+  height = 5
+)
+ggsave(
+  paste0(here::here(), "/fig_pub/combined_metaanalysis_couplings.png"),
+  width = 10,
+  height = 5
+)
 ```

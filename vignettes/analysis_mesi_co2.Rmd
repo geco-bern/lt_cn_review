@@ -32,13 +32,19 @@ Load stuff for creating the references table. Get mesi-db data and source code f
 ```{r}
 library(xtable)
 source("~/mesi-db/R/create_table_latex.R")
+source("~/mesi-db/R/process_cite_lines.R")
 ```
 
 
 # Read data and libraries
 
 Load and interpret MESI data files.
-```{r message=FALSE}
+`
+``
+{
+  r
+  message <- FALSE
+}
 # ## second line provides units
 # col_names <- names(read_csv("~/mesi-db_test/data/mesi_main.csv", n_max = 0))
 # units <- names(read_csv("~/mesi-db_test/data/mesi_main.csv", n_max = 0, skip = 1))
@@ -423,18 +429,6 @@ create_table_latex(
   align = c("p{0.1cm}", "p{3cm}", "p{4cm}", "p{4cm}")
   )
 
-# # Read the .tex file
-# lines <- readLines(here("manuscript/df_experiments_co2.tex"))
-# 
-# # Apply the processing function to each line
-# modified_lines <- process_cite_lines(lines)
-# 
-# # Write the modified lines to a new .tex file
-# writeLines(
-#   modified_lines, 
-#   here("manuscript/df_experiments_co2.tex")
-#   )
-
 write_csv(
   df_experiments_co2,
   file = here::here("data/df_experiments_co2.csv")
@@ -446,7 +440,7 @@ Number of data points (plot-level measurements) per variable:
 df5 %>% 
   group_by(myvar) %>% 
   summarise(n_plots = sum(rep_c), n_exp = n()) %>% 
-  rename_("Variable"="myvar", "N plots"="n_plots", "N experiments"="n_exp") %>% 
+  rename("Variable"="myvar", "N plots"="n_plots", "N experiments"="n_exp") %>% 
   knitr::kable()
 ```
 
@@ -1151,7 +1145,7 @@ Number of data points (plot-level measurements) per variable:
 df4 %>%
   group_by(myvar) %>%
   summarise(n_plots = sum(rep_c, na.rm = TRUE), n_exp = n()) %>%
-  rename_("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>%
+  rename("Variable"="myvar", "N observations"="n_plots", "N experiments"="n_exp") %>%
   knitr::kable()
 ```
 
@@ -1160,7 +1154,7 @@ Number of data points (plot-level measurements) per experiment:
 df4 %>%
   group_by(exp) %>%
   summarise(n_plots = sum(rep_c), n_exp = n()) %>%
-  rename_("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>%
+  rename("Experiment"="exp", "N observations"="n_plots", "N experiments"="n_exp") %>%
   knitr::kable()
 
 write_csv(df4, file = here::here("data/n_experiments.csv"))

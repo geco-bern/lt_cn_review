@@ -275,11 +275,11 @@ gg1 / gg2 / gg3 / gg4
 
 gg5 <- output |>  
   as_tibble() |> 
-  ggplot(aes(date, x1)) + 
+  ggplot(aes(date, gpp)) + 
   geom_line()
 gg6 <- output |> 
   as_tibble() |> 
-  ggplot(aes(date, x2)) + 
+  ggplot(aes(date, fapar)) + 
   geom_line()
 gg7 <- output |> 
   as_tibble() |> 
@@ -378,6 +378,8 @@ ggrr <- ggplot() +
   labs(x = "Variable", y = "Log Response Ratio") +
   coord_flip() +
   labs(title = "cnmodel prediction", subtitle = "Response to N-fertilization")
+
+ggrr
 
 ggsave(paste0(here::here(), "/fig/response_nfert_cnmodel_", commitnr, ".pdf"))
 
